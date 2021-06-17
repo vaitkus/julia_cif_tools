@@ -6,7 +6,9 @@ Command-line tools for working with Crystallographic Information Framework files
 
 1.  [Install Julia](https://docs.julialang.org/en/v1/manual/getting-started/)
 2.  At the Julia prompt, type `using Pkg;Pkg.add("CrystalInfoFramework")`. Exit Julia.
-3.  A help message for each of the programs below can be obtained by running `julia <program_file>` at your command prompt.
+3.  Copy or clone this project to a suitable location on your system. The instructions below assume that you are
+    executing from this location.
+4.  A help message for each of the programs below can be obtained by running `julia <program_file>` at your command prompt.
 
 # Contents
 
