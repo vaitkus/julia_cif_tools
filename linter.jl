@@ -12,7 +12,7 @@ include("ordering.jl")
 include("capitalisation.jl")
 
 lint_report(filename;ref_dic="") = begin
-    println("Lint report for $filename\n"*"="^(length(filename) + 16)*"\n")
+    println("\nLint report for $filename\n"*"="^(length(filename) + 16)*"\n")
     println("Layout:\n")
     fulltext = read(filename,String)
     if occursin("\t",fulltext)

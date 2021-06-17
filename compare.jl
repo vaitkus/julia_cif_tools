@@ -156,7 +156,9 @@ end
 if abspath(PROGRAM_FILE) == @__FILE__
     if length(ARGS) < 4
         println("""
-Usage: julia $(basename(PROGRAM_FILE)) <lang> <ws> <dictionary1> <dictionary2> where <lang> is either "ddl2" or "ddlm". If <ws> is 'false' (the default), whitespace differences are ignored. """)
+Usage: julia $(basename(PROGRAM_FILE)) <lang> <ws> <dictionary1> <dictionary2> 
+where <lang> is the language in which both dictionaries are written: either "ddl2" 
+or "ddlm". If <ws> is 'false', whitespace differences are ignored. """)
         exit()
     end
     source_lang = ARGS[1]
