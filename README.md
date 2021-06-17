@@ -26,7 +26,8 @@ repository](https://github.com/COMCIFS/cif_core).
 Check that two dictionaries have identical contents.
 
 Execute by running `julia compare.jl <lang> <ws> <dic1> <dic2>`. If `ws` is false, ignore whitespace differences.
-`lang` is the language (`ddl2` or `ddlm`) that the dictionaries are written in.
+`lang` is the language (`ddl2` or `ddlm`) that the dictionaries are written in. Note that only a subset of DDL2
+attributes are currently checked.
 
 ## Pretty printer
 
