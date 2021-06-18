@@ -52,6 +52,7 @@ be checked.""")
         filename = ARGS[1]
         if length(ARGS) >= 2 ref_dic = ARGS[2] else ref_dic = "" end
         lint_report(filename,ref_dic=ref_dic)
-        length(err_record) > 0 ? 1 : 0
+        println("Total errors: $(length(err_record))")
+        length(err_record) > 0 ? exit(1) : exit(0)
     end
 end
