@@ -3,7 +3,10 @@ using CrystalInfoFramework,Printf
 
 using Lerche   #for our transformer
 
+const err_record = Dict{String,Int}()
+
 print_err(line,text;err_code="CIF") = begin
+    err_record[err_code] = get(err_record,err_code,0) + 1
     @printf "%6d: rule %5s: %s\n" line err_code text
 end
 
@@ -49,5 +52,6 @@ be checked.""")
         filename = ARGS[1]
         if length(ARGS) >= 2 ref_dic = ARGS[2] else ref_dic = "" end
         lint_report(filename,ref_dic=ref_dic)
+        length(err_record) > 0 ? 1 : 0
     end
 end

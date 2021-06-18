@@ -11,7 +11,7 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "UBij","av_R_","TIJ","_T_max","_T_min","F_000","RGB",
                       "^IT_","label_[ADH]","distance_[DAH]+","symmetry_[DAH]\$",
                       "angle_[DAH]+(_|\$)",
-                      "Cambridge","units_Z","CAS","ISBN","CSD","Medline",
+                      "Cambridge","units_Z","CAS\$","ISBN","CSD","Medline",
                       "ASTM","ISSN","^COD\$","NCA","^NH","MDF","NBS","PDB","PDF",
                       "I_over_I","I_over_netI","I_net","R_Fsqd","^R_I_","Lp_factor",
                       "R_I_factor","I_over_suI","meas_F","_S_",
@@ -29,7 +29,7 @@ CapitalCheck() = CapitalCheck(false,false,[])
 CapitalCheck(ref_dic::String) = begin
     d = DDLm_Dictionary(ref_dic)
     code_items = list_code_defs(d)
-    CapitalCheck(false,code_items)
+    CapitalCheck(false,false,code_items)
 end
 
 all_upper(s) = begin
