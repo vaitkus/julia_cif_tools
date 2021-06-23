@@ -103,7 +103,9 @@ end
 
 remove_wspace(df) = begin
     for n in propertynames(df)
-        df[:,n] = map(x->replace(x,r"[\n \t]+"m=>""),df[!,n])
+        df[:,n] = map(df[!,n]) do x
+            isnothing(x) ? x : replace(x,r"[\n \t]+"m=>"")
+        end
     end
     return df
 end
