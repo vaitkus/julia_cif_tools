@@ -52,7 +52,11 @@ be checked.""")
         filename = ARGS[1]
         if length(ARGS) >= 2 ref_dic = ARGS[2] else ref_dic = "" end
         lint_report(filename,ref_dic=ref_dic)
-        println("Total errors: $(length(err_record))")
+        println("Total errors by style rule:")
+        for (k,v) in err_record
+            @printf "%10s: %5d" k v
+        end
+        println()
         length(err_record) > 0 ? exit(1) : exit(0)
     end
 end

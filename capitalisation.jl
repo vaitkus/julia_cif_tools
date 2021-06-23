@@ -34,7 +34,7 @@ end
 
 all_upper(s) = begin
     if all(isuppercase,s) return true end
-    c = match(r"[A-Z_]+",String(s))
+    c = match(r"[^a-z]+",String(s))
     c != nothing && length(c.match) == length(s)
 end
 
@@ -70,6 +70,9 @@ end
 end
 
 @rule save_frame(cc::CapitalCheck,tree) = begin
+    if cc.iscat && !all_upper(tree.children[1][6:end])
+        print_err(get_line(tree),"Save frame name is not all upper case for category definition",err_code = "4.3.1")
+    end
     name = first(Lerche.find_pred(tree,x->x.children[1]=="_name.category_id"))
     object = first(Lerche.find_pred(tree,x->x.children[1]=="_name.object_id"))
     name = traverse_to_value(name.children[2])

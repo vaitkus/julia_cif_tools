@@ -7,7 +7,7 @@ check_column(token::Token,proper,rule_no) = begin
 end
 
 """
-    check_text_indent(val,indent,err_code)
+    check_text_indent(val,indent,is_second,err_code)
 
 Check that the multi-line value `val` contains `indent` spaces at the beginning of
 each new line. If not, the appropriate `err_code` is provided.
@@ -72,12 +72,14 @@ get_delimiter_with_val(v) = begin
     return delimiter,value[1+del_len:(end-del_len)]
 end
 
-traverse_to_value(tv::Tree) = begin
-    if length(tv.children) == 1 return traverse_to_value(tv.children[1])
+traverse_to_value(tv::Tree;firstok=false) = begin
+    if length(tv.children) == 1 || firstok return traverse_to_value(tv.children[1],firstok=firstok)
     else
         throw(error("Cannot find unique single value for $tv"))
     end
 end
+
+traverse_to_value(tv::Token;firstok=false) = tv
 
 # Return the first item of type `d` found in `tv` 
 traverse_to_type(tv::Tree,d) = begin
@@ -93,7 +95,6 @@ traverse_to_type(tv::Token, d) = begin
     if token.type_ == d return tv else return nothing end
 end
 
-traverse_to_value(tv::Token) = tv
 
 get_line(t::Tree) = get_line(t.children[1])
 get_column(t::Tree) = get_column(t.children[1])
@@ -292,11 +293,16 @@ check_loop_text_indent(name_list,value_list,delims) = begin
     indent = text_indent + loop_indent + 1
     num_names = length(name_list)
     nrows = div(length(value_list),num_names)
+    delim_cond = num_names == 2 && delims[1] != "\n;" && delims[2] == "\n;"
     for n in 0:(nrows-1)
         for p in 1:num_names
             val = value_list[n*num_names + p]
             if get_delimiter(val) in ("\n;","'''","\"\"\"")
-                check_text_indent(val,indent,"3.2.7")
+                if delim_cond && p == 2
+                    check_text_indent(val,loop_align-1,"3.2.10")
+                else
+                    check_text_indent(val,indent,"3.2.7")
+                end
             end
         end
     end
@@ -369,6 +375,7 @@ end
     previous_entry = nothing
     has_compound = false
     total_width = 0
+    contains_newline = get_line(tree) != get_last_line(tree)
     # check brace separation
     for i in 2:length(tree.children)-1
         # avoid iteration of the tree as that is recursive
@@ -384,6 +391,9 @@ end
             previous_entry = one_entry
             if !newline && (get_column(tree.children[1])+1 != get_column(one_entry))
                 print_err(get_line(tree),"Whitespace after opening bracket of list",err_code="2.2.1")
+            end
+            if contains_newline && !newline && one_entry.children[1].data in ["list","table"]
+                print_err(get_line(one_entry),"Nested compound items should be on separate lines for multi-line compound values",err_code="2.4.5")
             end
             continue
         end

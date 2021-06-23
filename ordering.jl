@@ -24,21 +24,30 @@ mutable struct OrderCheck <: Visitor_Recursive
     cat_info::Array{Tuple{String,String},1}
     this_def::String
     this_parent::String
+    func_cat::String
+    is_su::Bool
+    linked::String
 end
 
-OrderCheck() = OrderCheck([],[],[],[],"","")
+OrderCheck() = OrderCheck([],[],[],[],"","","",false,"")
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
-    push!(oc.seen_items,tree.children[1])
-    if tree.children[1] == "_definition.id"
-        oc.this_def = lowercase(traverse_to_value(tree.children[2]))
-    elseif tree.children[1] == "_name.category_id"
-        oc.this_parent = lowercase(traverse_to_value(tree.children[2]))
-    elseif tree.children[1] == "_definition.class"
-        class = traverse_to_value(tree.children[2])
-        if class == "Head" && length(oc.seen_defs) != 0
+    att = traverse_to_value(tree.children[1],firstok=true)
+    val = traverse_to_value(tree.children[2],firstok=true)
+    push!(oc.seen_items,att)
+    if att == "_definition.id"
+        oc.this_def = lowercase(val)
+    elseif att == "_name.category_id"
+        oc.this_parent = lowercase(val)
+    elseif att == "_definition.class"
+        if val == "Head" && length(oc.seen_defs) != 0
             print_err(get_line(tree),"Head category should be the first definition",err_code="4.1.7")
         end
+        if val == "Functions" oc.func_cat = oc.this_def end #assume comes after
+    elseif att == "_name.linked_item_id"
+        oc.linked = lowercase(val)
+    elseif att == "_type.purpose"
+        oc.is_su = val == "SU"
     end
 end
 
@@ -58,6 +67,10 @@ end
         print_err(get_line(tree),"Definition for child item $(oc.this_def) comes before category $(oc.this_parent)",err_code="4.1.8")
         #println("Seen $(oc.seen_defs)")
     end
+    # Check SU is straight after parent
+    if oc.is_su && oc.seen_defs[end] != oc.linked
+        print_err(get_line(tree),"SU $(oc.this_def) does not immediately follow its Measurand item $(oc.linked)",err_code="4.1.10")
+    end
     if oc.this_def != ""
         push!(oc.seen_defs,oc.this_def)
         push!(oc.cat_info,(oc.this_def,oc.this_parent))
@@ -69,7 +82,14 @@ end
             print_err(get_line(tree),"Definition for data name $(oc.this_def) is not grouped after parent category $(oc.this_parent)",err_code="4.1.8")
         end
     end
+    # Pretend we never saw any SU values to save order checking later
+    if oc.this_def != "" && oc.is_su
+        pop!(oc.seen_defs)
+        pop!(oc.cat_info)
+    end
     oc.this_def = ""
+    oc.is_su = false
+    oc.linked = ""
 end
 
 @rule block_content(oc::OrderCheck,tree) = begin
@@ -94,7 +114,7 @@ end
             end
         end
     end
-    check_def_order(oc.cat_info)
+    check_def_order(oc.cat_info,oc.func_cat)
 end
 
 to_cat_obj(v) = begin
@@ -119,11 +139,11 @@ check_order(right,observed,err_code,line) = begin
     end
 end
 
-check_def_order(cat_tuples) = begin
+check_def_order(cat_tuples,func_cat) = begin
     def_order = lowercase.([x[1] for x in cat_tuples])
     all_cats = unique!(filter(x-> !occursin(".",x),def_order))
     for one_cat in all_cats
-        children = filter(x->x[2] == one_cat && x in all_cats,cat_tuples)
+        children = filter(x->x[2] == one_cat && x[1] in all_cats && x[1] != func_cat,cat_tuples)
         children = [x[1] for x in children]
         if sort(children) != children
             print_err(0,"Child categories of category $one_cat not in alphabetical order", err_code="4.1.9")
@@ -131,7 +151,7 @@ check_def_order(cat_tuples) = begin
                 @printf "%-30s%-30s\n" s c
             end
         end
-        children = filter(x->x[2] == one_cat && !(x in all_cats),cat_tuples)
+        children = filter(x->x[2] == one_cat && !(x[1] in all_cats),cat_tuples)
         children = [x[1] for x in children]
         if sort(children) != children
             print_err(0,"Child data names of category $one_cat not in alphabetical order", err_code="4.1.8")
@@ -139,6 +159,9 @@ check_def_order(cat_tuples) = begin
                 @printf "%-30s%-30s\n" s c
             end
         end
+    end
+    if all_cats[end] != func_cat
+        print_err(0,"Function category is not the final category",err_code="4.1.11")
     end
 end
 
