@@ -53,8 +53,8 @@ be checked.""")
         if length(ARGS) >= 2 ref_dic = ARGS[2] else ref_dic = "" end
         lint_report(filename,ref_dic=ref_dic)
         println("Total errors by style rule:")
-        for (k,v) in err_record
-            @printf "%10s: %5d" k v
+        for k in sort(collect(keys(err_record)))
+            @printf "%10s: %5d\n" k err_record[k]
         end
         println()
         length(err_record) > 0 ? exit(1) : exit(0)

@@ -160,7 +160,7 @@ check_def_order(cat_tuples,func_cat) = begin
             end
         end
     end
-    if all_cats[end] != func_cat
+    if func_cat != "" && all_cats[end] != func_cat
         print_err(0,"Function category is not the final category",err_code="4.1.11")
     end
 end
