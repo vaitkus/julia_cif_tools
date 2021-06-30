@@ -22,14 +22,15 @@ mutable struct CapitalCheck <: Visitor_Recursive
     iscat::Bool
     isfunc::Bool
     code_items::Array{String,1}
+    enums::Dict{String,Array{String,1}}
 end
 
-CapitalCheck() = CapitalCheck(false,false,[])
+CapitalCheck() = CapitalCheck(false,false,(),Dict())
 
-CapitalCheck(ref_dic::String) = begin
-    d = DDLm_Dictionary(ref_dic)
+CapitalCheck(d::DDLm_Dictionary) = begin
     code_items = list_code_defs(d)
-    CapitalCheck(false,false,code_items)
+    enum_items = get_enums(d)
+    CapitalCheck(false,false,code_items,enum_items)
 end
 
 all_upper(s) = begin
@@ -50,7 +51,7 @@ end
     if attribute == "_definition.id"
         v = traverse_to_value(tree.children[2])
         if !occursin(".",v) && !all_upper(v)
-            print_err(get_line(tree),"Category names should be uppercase in category definition for $v",err_code = "2.1.14")
+            print_err(get_line(tree),"Category names should be uppercase in category definition for $v",err_code = "2.1.10")
         end
     end
     if attribute == "_definition.scope"
@@ -61,10 +62,32 @@ end
         v = traverse_to_value(tree.children[2])
         if v == "function" cc.isfunc = true end
     end
-    if attribute in cc.code_items
+    if attribute in cc.code_items && !(attribute in keys(cc.enums))
         v = traverse_to_value(tree.children[2])
         if isletter(v[1]) && !isuppercase(v[1])
-            print_err(get_line(tree),"Attribute values for $attribute should be capitalised",err_code="2.1.16")
+            print_err(get_line(tree),"Attribute values for $attribute should be capitalised",err_code="2.1.12")
+        end
+    end
+    if attribute in keys(cc.enums)
+        v = traverse_to_value(tree.children[2],firstok=true)
+        poss = cc.enums[attribute]
+        if !(v in poss)
+            print_err(get_line(tree),"Attribute value $v for $attribute does not follow that used in the reference dictionary",err_code="2.1.13")
+        end
+    end
+end
+
+@rule loop(cc::CapitalCheck,tree) = begin
+    boundary = findfirst(x-> !isa(x,Lerche.Token),tree.children)
+    dnames = String.(tree.children[2:boundary-1])
+    for i in boundary:length(tree.children[boundary:end])
+        dname = dnames[((i-boundary)%length(dnames))+1]
+        if dname in keys(cc.enums)
+            poss = cc.enums[dname]
+            val = String(traverse_to_value(tree.children[i],firstok=true))
+            if !(val in poss)
+                print_err(get_line(tree.children[i]),"Attribute value $val for $dname is not capitalised as in the reference dictionary", err_code="2.1.13")
+            end
         end
     end
 end

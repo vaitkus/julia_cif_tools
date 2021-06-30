@@ -52,7 +52,6 @@ OrderCheck() = OrderCheck([],[],[],[],"","","",false,"")
 end
 
 @rule loop(oc::OrderCheck,tree) = begin
-    n = 1
     boundary = findfirst(x-> !isa(x,Lerche.Token),tree.children)
     append!(oc.seen_items,tree.children[2:boundary-1])
 end
