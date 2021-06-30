@@ -13,6 +13,7 @@ end
 include("layout.jl")
 include("ordering.jl")
 include("capitalisation.jl")
+include("defaults.jl")
 
 lint_report(filename;ref_dic="") = begin
     println("\nLint report for $filename\n"*"="^(length(filename) + 16)*"\n")
@@ -33,12 +34,18 @@ lint_report(filename;ref_dic="") = begin
     println("\nOrdering:\n")
     Lerche.visit(oc,ptree)
     if ref_dic != ""
-        cc = CapitalCheck(ref_dic)
+        d = DDLm_Dictionary(ref_dic)
+        cc = CapitalCheck(d)
     else
         cc = CapitalCheck()
     end
     println("\nCapitalisation:\n")
     Lerche.visit(cc,ptree)
+    if ref_dic != ""
+        dc = DefaultCheck(d)
+        println("\nDefaults:\n")
+        Lerche.visit(dc,ptree)
+    end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
