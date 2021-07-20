@@ -127,20 +127,20 @@ make_lower(df) = begin
     return df
 end
 
-report_diffs(source_lang,dics;kwargs...) = begin
+report_diffs(source_lang,dics;ignore=(),kwargs...) = begin
     if source_lang == "ddl2"
         ref_dic = DDL2_Dictionary(ddl2_ref_dic)
         dica,dicb = DDL2_Dictionary.(dics)
         test_categories = ddl2_test_categories
-        ignore = ddl2_ignore
+        ignore = union(ignore, ddl2_ignore)
     else
         dica,dicb = DDLm_Dictionary.(dics, ignore_imports=true)
         ref_dic = DDLm_Dictionary(ddlm_ref_dic)
         test_categories = Symbol.(get_categories(ref_dic))
-        ignore = []
     end
     println("Testing following categories:")
     println("$test_categories")
+    println("Ignoring: $ignore")
     difa,_ = find_missing_defs(dica,dicb)
     if length(difa) > 0
         print_err("Warning: missing definitions for $difa")
@@ -195,6 +195,10 @@ parse_cmdline() = begin
           arg_type = String
           default = "ddlm"
           help = "Dictionary language: 'ddlm' or 'ddl2'"
+        "--ignore"
+         arg_type = String
+        help = "Ignore differences for attribute _xxx.yyy"
+        nargs = '*'
     end
     parse_args(s)
 end
@@ -204,6 +208,8 @@ if abspath(PROGRAM_FILE) == @__FILE__
     source_lang = parsed_args["lang"]
     wspace = parsed_args["w"]
     caseless = parsed_args["c"]
+    println("$parsed_args")
     dics = (parsed_args["dictionary1"],parsed_args["dictionary2"])
-    report_diffs(source_lang,dics,wspace=wspace,caseless=caseless)
+    ignore = map(x->Symbol.(split(x[2:end],".")),parsed_args["ignore"])
+    report_diffs(source_lang,dics,wspace=wspace,caseless=caseless,ignore=ignore)
 end
