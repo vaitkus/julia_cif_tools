@@ -16,8 +16,7 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "I_over_I","I_over_netI","I_net","R_Fsqd","^R_I_","Lp_factor",
                       "R_I_factor","I_over_suI","meas_F","_S_",
                       "^R\$","^RT\$","^T\$","^B\$","^Ro\$","EPINET","_IZA\$",
-                      "RCSR","_SP\$","TOPOS\$","^TD10\$","Z_number","Voronoi",
-                      "^D_size\$","^Dsize\$"
+                      "RCSR","_SP\$","TOPOS\$","Voronoi"
                       )
 
 mutable struct CapitalCheck <: Visitor_Recursive
