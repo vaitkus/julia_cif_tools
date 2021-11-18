@@ -1,13 +1,20 @@
 # Routines to add SU data names that are missing
-using CrystalInfoFramework,Dates,DataFrames
+# We rely on the "general_su" imported data for
+# generic su values
+
+using CrystalInfoFramework,Dates,DataFrames,FilePaths
 
 add_su(filename,for_real) = begin
     dic = DDLm_Dictionary(filename,ignore_imports=true)
-    no_sus = collect_defs(dic)
+    full_dic = DDLm_Dictionary(filename) #grab the imported "Measurands"
+    templ_dic = Cif(Path(joinpath(dirname(filename), "templ_attr.cif")))
+    templ_block = get_frames(first(templ_dic).second)["general_su"]
+    no_sus = collect_defs(full_dic)
     if !for_real return nothing,no_sus end
     latest = dic
     for one_def in no_sus
-        latest = construct_su_def(latest,one_def)
+        println("Constructing $one_def")
+        latest = construct_su_def(latest,one_def,full_dic,templ_block)
         CrystalInfoFramework.show_one_def(stdout,one_def*"_su",latest[one_def*"_su"])
     end
     return latest,no_sus
@@ -23,11 +30,14 @@ collect_defs(dic) = begin
     return setdiff(mmdefs,su_present,[find_head_category(dic)])
 end
 
-construct_su_def(dic,data_name) = begin
+"""
+    `full_dic` is the dictionary with all imports resolved,
+so that we have access to the type information.
+"""
+construct_su_def(dic,data_name,full_dic,import_block) = begin
     # Add a row to the relevant tables
-    md_def = dic[data_name]
+    md_def = full_dic[data_name]
     su_data_name = data_name*"_su"
-    nowdate = 
     new_def = Dict{Symbol,DataFrame}()
     # Name
     new_def[:name] = DataFrame()
@@ -40,13 +50,19 @@ construct_su_def(dic,data_name) = begin
     new_def[:definition].update = ["$(today())"]
     # Description
     new_def[:description] = DataFrame()
-    new_def[:description].text = ["Standard uncertainty of $data_name"]
+    new_def[:description].text = ["Standard uncertainty of $data_name."]
     # Type
-    new_def[:type] = DataFrame()
-    new_def[:type].purpose = ["SU"]
-    new_def[:type].source = md_def[:type].source
-    new_def[:type].container = md_def[:type].container
-    new_def[:type].contents = md_def[:type].contents
+    # No need for type if it matches the general_su block
+    if md_def[:type].container[] == import_block["_type.container"][]
+        new_def[:import] = DataFrame()
+        new_def[:import].get = [[Dict("save"=>"general_su","file"=>"templ_attr.cif")]]
+    else
+        new_def[:type] = DataFrame()
+        new_def[:type].purpose = ["SU"]
+        new_def[:type].source = ["Derived"]
+        new_def[:type].container = md_def[:type].container
+        new_def[:type].contents = md_def[:type].contents
+    end
     if :dimension in propertynames(md_def[:type])
         new_def[:type].dimension = md_def[:type].dimension
     end
@@ -54,6 +70,12 @@ construct_su_def(dic,data_name) = begin
     new_def[:units] = DataFrame()
     if :code in propertynames(md_def[:units])
         new_def[:units].code = md_def[:units].code
+    end
+    # And add methods *if* they are Definition for _units.code
+    mm = filter(row->row.purpose == "Definition" &&
+                occursin("_units.code",row.expression),md_def[:method])
+    if nrow(mm) > 0
+        new_def[:method] = mm
     end
     return add_definition(dic,new_def)
 end
@@ -66,15 +88,15 @@ if abspath(PROGRAM_FILE) == @__FILE__
 'true', an updated version of <dictionary file> is written to <dictionary file>.update_su
 """)
     else
-        filename = ARGS[1]
+        fname = ARGS[1]
         if length(ARGS) >= 2 for_real = parse(Bool,ARGS[2]) else for_real = false end
-        updated,added = add_su(filename,for_real)
+        updated,added = add_su(fname,for_real)
         println("Total added definitions: $(length(added))")
         for k in sort!(added)
             println("$k")
         end
         println()
-        w = open(filename*".update_su","w")
+        w = open(fname*".update_su","w")
         show(w,MIME("text/cif"),updated)
         close(w)
     end

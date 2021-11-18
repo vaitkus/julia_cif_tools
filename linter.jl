@@ -1,5 +1,5 @@
 # A Linter for DDLm dictionaries
-using CrystalInfoFramework,Printf
+using CrystalInfoFramework,Printf,FilePaths
 
 using Lerche   #for our transformer
 
@@ -11,6 +11,7 @@ print_err(line,text;err_code="CIF") = begin
 end
 
 include("layout.jl")
+include("import_parser.jl")
 include("ordering.jl")
 include("capitalisation.jl")
 include("defaults.jl")
@@ -30,7 +31,7 @@ lint_report(filename;ref_dic="") = begin
     ptree = Lerche.parse(CrystalInfoFramework.cif2_parser,fulltext,start="input")
     l = Linter()
     Lerche.visit(l,ptree)
-    oc = OrderCheck()
+    oc = OrderCheck(dirname(filename))
     println("\nOrdering:\n")
     Lerche.visit(oc,ptree)
     if ref_dic != ""
@@ -56,9 +57,9 @@ if abspath(PROGRAM_FILE) == @__FILE__
 reference dictionary. If absent, capitalisation of attribute values will not
 be checked.""")
     else
-        filename = ARGS[1]
+        dicname = ARGS[1]
         if length(ARGS) >= 2 ref_dic = ARGS[2] else ref_dic = "" end
-        lint_report(filename,ref_dic=ref_dic)
+        lint_report(dicname,ref_dic=ref_dic)
         println("Total errors by style rule:")
         for k in sort(collect(keys(err_record)))
             @printf "%10s: %5d\n" k err_record[k]

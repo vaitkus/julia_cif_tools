@@ -27,28 +27,17 @@ mutable struct OrderCheck <: Visitor_Recursive
     func_cat::String
     is_su::Bool
     linked::String
+    origin_dir::AbstractPath   #for imports
 end
 
-OrderCheck() = OrderCheck([],[],[],[],"","","",false,"")
+OrderCheck() = OrderCheck(@__DIR__)
+OrderCheck(s::String) = OrderCheck([],[],[],[],"","","",false,"",Path(s))
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
     att = traverse_to_value(tree.children[1],firstok=true)
     val = traverse_to_value(tree.children[2],firstok=true)
     push!(oc.seen_items,att)
-    if att == "_definition.id"
-        oc.this_def = lowercase(val)
-    elseif att == "_name.category_id"
-        oc.this_parent = lowercase(val)
-    elseif att == "_definition.class"
-        if val == "Head" && length(oc.seen_defs) != 0
-            print_err(get_line(tree),"Head category should be the first definition",err_code="4.1.7")
-        end
-        if val == "Functions" oc.func_cat = oc.this_def end #assume comes after
-    elseif att == "_name.linked_item_id"
-        oc.linked = lowercase(val)
-    elseif att == "_type.purpose"
-        oc.is_su = val == "SU"
-    end
+    check_attribute(oc,att,val,tree)
 end
 
 @rule loop(oc::OrderCheck,tree) = begin
@@ -164,3 +153,43 @@ check_def_order(cat_tuples,func_cat) = begin
     end
 end
 
+# Extract necessary information from imported contents
+process_import(oc::OrderCheck,val,tree) = begin
+    if get(val,"mode","Contents") == "Full" return end
+    templ_file_name = joinpath(oc.origin_dir, val["file"])
+    templ_file = nothing
+    try
+        templ_file = Cif(templ_file_name)
+    catch
+        println("WARNING: unable to resolve $templ_file_name to a filename")
+        return
+    end
+    templates = get_frames(first(templ_file)[end])
+    target_block = templates[val["save"]]
+    # Now check for items we care about
+    for (a,v) in target_block
+        if length(v) > 1 continue end   #we only care about single-valued items
+        check_attribute(oc,a,v[],tree)
+    end
+end
+
+# Placed here so it can be called from import routine and
+# from main routine
+check_attribute(oc::OrderCheck,att,val,tree) = begin
+    if att == "_definition.id"
+        oc.this_def = lowercase(val)
+    elseif att == "_name.category_id"
+        oc.this_parent = lowercase(val)
+    elseif att == "_definition.class"
+        if val == "Head" && length(oc.seen_defs) != 0
+            print_err(get_line(tree),"Head category should be the first definition",err_code="4.1.7")
+        end
+        if val == "Functions" oc.func_cat = oc.this_def end #assume comes after
+    elseif att == "_name.linked_item_id"
+        oc.linked = lowercase(val)
+    elseif att == "_type.purpose"
+        oc.is_su = val == "SU"
+    elseif att == "_import.get"
+        process_import(oc,read_import_spec(tree.children[2]),tree)
+    end
+end
