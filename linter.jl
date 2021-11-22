@@ -1,5 +1,5 @@
 # A Linter for DDLm dictionaries
-using CrystalInfoFramework,Printf,FilePaths
+using CrystalInfoFramework,Printf,FilePaths,ArgParse
 
 using Lerche   #for our transformer
 
@@ -16,8 +16,11 @@ include("ordering.jl")
 include("capitalisation.jl")
 include("defaults.jl")
 
-lint_report(filename;ref_dic="") = begin
-    println("\nLint report for $filename\n"*"="^(length(filename) + 16)*"\n")
+lint_report(filename;ref_dic="",import_dir="") = begin
+    println("\nLint report for $filename\n"*"="^(length(filename) + 16)*"\n\n")
+    if length(import_dir)>0
+        println("Imports relative to $import_dir\n\n")
+    end
     println("Layout:\n")
     fulltext = read(filename,String)
     if occursin("\t",fulltext)
@@ -31,11 +34,12 @@ lint_report(filename;ref_dic="") = begin
     ptree = Lerche.parse(CrystalInfoFramework.cif2_parser,fulltext,start="input")
     l = Linter()
     Lerche.visit(l,ptree)
-    oc = OrderCheck(dirname(filename))
+    if import_dir == "" import_dir = dirname(filename) end
+    oc = OrderCheck(import_dir)
     println("\nOrdering:\n")
     Lerche.visit(oc,ptree)
     if ref_dic != ""
-        d = DDLm_Dictionary(ref_dic)
+        d = DDLm_Dictionary(ref_dic,import_dir=import_dir)
         cc = CapitalCheck(d)
     else
         cc = CapitalCheck()
@@ -49,22 +53,34 @@ lint_report(filename;ref_dic="") = begin
     end
 end
 
+parse_cmdline(d) = begin
+    s = ArgParseSettings(d)
+    @add_arg_table! s begin
+        "dictname"
+         help = "Dictionary to check"
+         required = true
+        "refdic"
+         help = "DDL reference dictionary. If absent, capitalisation will not be checked"
+        required = false
+        default = ""
+        "--import-dir","-i"
+        help = "Directory to search for imported files in. Default is the same directory as the dictionary"
+        arg_type = String
+        default = ""
+        required = false
+    end
+    parse_args(s)
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    if length(ARGS) < 1
-        println("Usage: julia linter.jl <dictionary file> <reference dictionary>")
-        println("""
-<dictionary file> is the file to be checked. <reference dictionary> is the DDL
-reference dictionary. If absent, capitalisation of attribute values will not
-be checked.""")
-    else
-        dicname = ARGS[1]
-        if length(ARGS) >= 2 ref_dic = ARGS[2] else ref_dic = "" end
-        lint_report(dicname,ref_dic=ref_dic)
-        println("Total errors by style rule:")
-        for k in sort(collect(keys(err_record)))
-            @printf "%10s: %5d\n" k err_record[k]
-        end
-        println()
-        length(err_record) > 0 ? exit(1) : exit(0)
+    parsed_args = parse_cmdline("Check dictionary conformance to DDLm style guide.")
+    println("$parsed_args")
+    lint_report(parsed_args["dictname"],ref_dic=parsed_args["refdic"],import_dir=parsed_args["import-dir"])
+    println("Total errors by style rule:")
+    for k in sort(collect(keys(err_record)))
+        @printf "%10s: %5d\n" k err_record[k]
+    end
+    println()
+    length(err_record) > 0 ? exit(1) : exit(0)
     end
 end

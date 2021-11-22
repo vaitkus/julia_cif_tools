@@ -19,7 +19,7 @@ Verify a dictionary against layout and other style recommendations.
 Execute by running `julia linter.jl <dictionary file> <reference dictionary>`. This will verify `dictionary file` 
 against the current style recommendations for dictionary layout. If `reference dictionary` is not supplied,
 capitalisation is not checked. The reference dictionary is usually `ddl.dic`, available from [the COMCIFS github 
-repository](https://github.com/COMCIFS/cif_core).
+repository](https://github.com/COMCIFS/cif_core). For usage information, `julia linter.jl --help`.
 
 ## Comparison
 
