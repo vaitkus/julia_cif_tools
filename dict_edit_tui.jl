@@ -6,6 +6,7 @@ using Terming
 const T = Terming
 using DataFrames
 using CrystalInfoFramework
+using Dates
 
 #== Model - View - Controller idea
 
@@ -25,29 +26,66 @@ mutable struct DictModel
     cur_attribute::String
     cur_val::Vector{Any}
     att_index::Int64
+    edit_val::String
+    edit_pos::Int64
+    message::String
     ref_dic::Union{DDLm_Dictionary,Nothing}
 end
+
+const base_help = "(q) Quit (f) next def (b) prev def (c) category (o) object (n) new (x) delete (h) help (k) keys"
+const edit_help = "EDIT MODE (esc) leave"
+
 
 DictModel(ddlm_dict,ref_dic) = begin
     all_defs = collect(keys(ddlm_dict))
     start_name = length(all_defs) > 0 ? all_defs[1] : ""
     println("Starting def is $start_name")
     d = DictModel(ddlm_dict,start_name,
-                  "_definition.id",["?"],1,ref_dic)
+                  "_definition.id",["?"],1,"",1,
+                  base_help,ref_dic)
     d.cur_val = val_for_att(d)
     return d
 end
 
 # The current definition is updated with the new value
 update_model!(d,new_val) = begin
-    println("Was $(d.cur_val)")
     update_dict!(d.base_dict,d.cur_def,d.cur_attribute,d.cur_val[d.att_index],new_val)
     d.cur_val = val_for_att(d)
     @assert d.cur_val[d.att_index] == new_val
-    println("Now $(d.cur_val)")
+    auto_changes!(d)
+end
+
+auto_changes!(d) = begin
+    if d.cur_attribute in ("_name.object_id","_name.category_id")
+        if d.base_dict[d.cur_def][:definition].class[] == "Head"
+            # cat / obj same for head definition
+            changed_val = get_attribute(d.base_dict,d.cur_def,d.cur_attribute)[]
+            update_dict!(d.base_dict,d.cur_def,"_name.category_id",changed_val)
+            update_dict!(d.base_dict,d.cur_def,"_name.object_id",changed_val)
+        end
+        cat = d.base_dict[d.cur_def][:name].category_id[]
+        obj = d.base_dict[d.cur_def][:name].object_id[]
+        if is_category(d.base_dict,d.cur_def)
+            new_def = obj
+        else
+            new_def = "_"*cat*"."*obj
+        end
+        update_dict!(d.base_dict,d.cur_def,"_definition.id",new_def)
+        d.cur_def = new_def
+    end
+    # This should be done right at the end
+    #today = Dates.format(Dates.now(),"yyyy-mm-dd")
+    #update_dict!(d.base_dict,d.cur_def,"_definition.update",today)
+end
+
+update_model!(d) = begin
+    update_model!(d,d.edit_val)
 end
 
 possible_values(d) = begin
+    if d.cur_attribute == "_name.category_id"
+        return get_categories(d.base_dict)
+    end
     try
         return d.ref_dic[d.cur_attribute][:enumeration_set].state
     catch
@@ -70,7 +108,7 @@ end
 
 next_def(d) = begin
     all_defs = sort!(collect(keys(d.base_dict)))
-    cur_index = findnext(isequal(d.cur_def),all_defs,1)
+    cur_index = findnext(isequal(lowercase(d.cur_def)),all_defs,1)
     if cur_index != length(all_defs)
         d.cur_def = all_defs[cur_index+1]
         d.att_index = 1
@@ -81,7 +119,7 @@ end
 
 back_def(d) = begin
     all_defs = sort!(collect(keys(d.base_dict)))
-    cur_index = findnext(isequal(d.cur_def),all_defs,1)
+    cur_index = findnext(isequal(lowercase(d.cur_def)),all_defs,1)
     if cur_index != 1
         d.cur_def = all_defs[cur_index-1]
         d.att_index = 1
@@ -90,17 +128,56 @@ back_def(d) = begin
     true
 end
 
+## For editing
+
+start_edit(d) = begin
+    d.edit_val = strip(d.cur_val[d.att_index])
+    d.edit_pos = length(d.edit_val)+1
+    d.message = edit_help
+    true
+end
+
+move_left(d) = d.edit_pos = d.edit_pos > 1 ? d.edit_pos-1 : d.edit_pos
+move_right(d) = d.edit_pos = d.edit_pos <= length(d.edit_val) ? d.edit_pos+1 : d.edit_pos
+
+delete_char(d) = begin
+    if length(d.edit_val) > 0 && d.edit_pos > 0
+        if d.edit_pos > length(d.edit_val)
+            d.edit_val = d.edit_val[1:end-1]
+        else
+            d.edit_val = d.edit_val[1:d.edit_pos-2]*d.edit_val[d.edit_pos:end]
+        end
+    end
+    move_left(d)
+    true
+end
+
+insert_char(d,char) = begin
+    pos = d.edit_pos
+    d.edit_val = d.edit_val[1:pos-1]*char*d.edit_val[pos:end]
+    move_right(d)
+    true
+end
+
+finish_edit(d) = begin
+    update_model!(d)
+    d.edit_val = ""
+    d.message = base_help
+end
+
 """
 
 Make a new definition that is a copy of the current
-definition with the object id changed to xxx
+definition with the object id changed.
 """
 make_new_def!(d) = begin
     old_def = d.base_dict[d.cur_def]
-    new_def_name = "_"*old_def[:name].category_id[]*"."*"xxx"
+    new_def_name = "_"*old_def[:name].category_id[]*"."*old_def[:name].object_id[]*"_new"
     old_def[:name].object_id = ["xxx"]
     old_def[:definition].id = [new_def_name]
-    d.base_dict = add_definition(d.base_dict,old_def)
+    old_def[:definition].update = [Dates.format(Dates.now(),"yyyy-mm-dd")]
+    old_def[:description].text = ["Please edit me"]
+    add_definition!(d.base_dict,old_def)
     d.cur_def = new_def_name
     true
 end
@@ -146,6 +223,7 @@ change_fwd(d) = begin
     if !isnothing(d.ref_dic)
         poss = possible_values(d)
         cur_index = indexin([d.cur_val[d.att_index]],poss)[]
+        if isnothing(cur_index) cur_index = 0 end #bad value
         if cur_index + 1 <= length(poss)
             update_model!(d,poss[cur_index+1])
         end
@@ -157,10 +235,20 @@ change_bwd(d) = begin
     if !isnothing(d.ref_dic)
         poss = possible_values(d)
         cur_index = indexin([d.cur_val[d.att_index]],poss)[]
+        if isnothing(cur_index) cur_index = 2 end
         if cur_index - 1 >= 1
             update_model!(d,poss[cur_index-1])
         end
     end
+    true
+end
+
+#TODO: fix all dates for correctness
+write_out(d,outfile) = begin
+    f = open(outfile,"w")
+    show(f,MIME("text/cif"),d.base_dict)
+    close(f)
+    d.message = "Written to $outfile"
     true
 end
 
@@ -192,10 +280,17 @@ gen_view(d::DictModel) = begin
     def_lines = prepare_def(title,info,lines=h-6)
     push!(ds, :base => DS.Label(def_lines,[2,2]))
     # Show attribute value
-    push!(ds, :attribute => DS.Label(val,[h-5,2]))
-    push!(ds, :instructions => DS.Label("(q) Quit (f) next def (b) prev def (c) category (o) object (n) new (x) delete (h) help" ,[h,5]))
+    push!(ds, :instructions => DS.Label(d.message ,[h,5]))
+    if d.edit_val == ""
+        push!(ds, :attribute => DS.Label(val,[h-5,2]))
+    else
+        push!(ds, :attribute => DS.Label(d.edit_val,[h-5,2]))
+    end
     return ds
 end
+
+# Should be added to DisplayStructure
+Base.setindex!(ds::DisplayStack,v,k) = ds.elements[k] = v
 
 prepare_def(title,info;start=1,lines=20) = begin
     strbuf = IOBuffer()
@@ -225,6 +320,11 @@ display_length(val,width) = begin
     if length(val) > width return val[1:width-3]*"..." else return val end
 end
 
+# the help screen
+
+const help_text = """
+
+""" 
 
 ## Controls
 
@@ -260,6 +360,8 @@ att_select(f_ch,sec_ch) = begin
             return "_description.text"
         elseif sec_ch == "c"
             return "_definition.class"
+        elseif sec_ch == "s"
+            return "_definition.scope"
         end
     elseif f_ch == "t"
         if sec_ch == "s"
@@ -279,9 +381,14 @@ end
 update(d::DictModel) = begin
     v = gen_view(d)
     DS.render(v)
+    if d.edit_val != ""
+        h,w = T.displaysize()
+        T.cshow(true)
+        T.cmove(h-5,d.edit_pos+1)
+    end
 end
 
-handle_event(d::DictModel) = begin
+handle_event(d::DictModel,name::String) = begin
     is_running = true
     options_list = possible_values(d)
     while is_running
@@ -296,15 +403,19 @@ handle_event(d::DictModel) = begin
         elseif sequence == "c"
             set_attr(d,"_name.category_id") && update(d)
         elseif sequence == "o"
-            set_attr(d,"_name.object_id") && update(d)
+            set_attr(d,"_name.object_id") && handle_edit_event(d) && update(d)
         elseif sequence == "s"
             set_attr(d,"_enumeration_set.state") && update(d)
         elseif sequence == "e"
             handle_edit_event(d) && update(d)
+        elseif sequence == "k"
+            set_attr(d,"_category_key.name") && update(d)
         elseif sequence == "n"
             make_new_def!(d) && update(d)
         elseif sequence == "x"
             delete_def!(d) && update(d)
+        elseif sequence == "w"
+            write_out(d,name) && update(d)
         # double-letter sequences for attributes
         elseif sequence in("d","t")
             second_let = T.read_stream()
@@ -325,23 +436,82 @@ end
 
 handle_edit_event(d::DictModel) = begin
     edit_mode = true
-    options_list = possible_values(d)
+    start_edit(d)
+    update(d)
     while edit_mode
         sequence = T.read_stream()
+        event = T.parse_sequence(sequence)
         if sequence == "\e"
             edit_mode = false
+        elseif event == T.KeyPressedEvent(T.BACKSPACE)
+            delete_char(d) && update(d)
+        elseif event == T.KeyPressedEvent(T.DELETE)
+            delete_char(d) && update(d)
+        elseif event == T.KeyPressedEvent(T.RIGHT)
+            move_right(d); update(d)
+        elseif event == T.KeyPressedEvent(T.LEFT)
+            move_left(d);  update(d)
+        else # insert character
+            insert_char(d,sequence)
+            update(d)
         end
     end
+    finish_edit(d)
+    update(d)
     return true
 end
 
-Base.run(start_dict::DDLm_Dictionary;ref_dict=nothing) = begin
+Base.run(start_dict::DDLm_Dictionary;ref_dict=nothing,out_name="") = begin
     init_term()
     start_model = DictModel(start_dict,ref_dict)
     view = gen_view(start_model)
     DS.render(view)
-    handle_event(start_model)
+    handle_event(start_model,out_name)
     reset_term()
-    return
+    return start_model.base_dict
 end
 
+blank_text = """
+#\\#CIF_2.0
+###################################################################
+#                                                                 #
+#           Starting dictionary                                   #
+#                                                                 #
+###################################################################
+data_starting
+
+_dictionary.title     STARTING
+_dictionary.class     Instance
+_dictionary.version   0.0.1
+_dictionary.date      $(Dates.format(Dates.now(),"yyyy-mm-dd"))
+_dictionary.ddl_conformance 4.1.0
+_description.text
+;
+    This is a blank starting dictionary. This text should be edited
+    to reflect the true purpose of the dictionary
+;
+
+save_BLANK
+
+    _definition.id                BLANK
+    _definition.scope             Category
+    _definition.class             Head
+    _definition.update            $(Dates.format(Dates.now(),"yyyy-mm-dd"))
+    _description.text
+;
+    This category is the top category. It should be renamed above
+    and below.
+;
+    _name.category_id             BLANK
+    _name.object_id               BLANK
+
+save_
+
+"""
+
+# Create a dictionary from nothing
+create_run(out_name::String;ref_dict=nothing) = begin
+    as_cif = Cif(blank_text)
+    as_dic = DDLm_Dictionary(as_cif)
+    return run(as_dic,ref_dict=ref_dict,out_name=out_name)
+end
