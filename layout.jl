@@ -1,4 +1,29 @@
-struct Linter <: Visitor_Recursive end
+struct LineCheck <: Visitor_Recursive
+    ignore_lines::Vector{Int64}   # which lines are ignored
+    no_text::Bool                 # skip multi-line text
+end
+
+LineCheck() = LineCheck(false)
+LineCheck(b::Bool) = LineCheck([],b)
+
+struct Linter <: Visitor_Recursive
+    ignore_lines::Vector{Int64}
+    no_text::Bool
+end
+
+Linter(l::LineCheck) = Linter(l.ignore_lines,l.no_text)
+
+@rule semi_string(l::LineCheck,tree) = begin
+    args = tree.children
+    first_line = args[1].line
+    last_line = args[end].line - 1
+    if l.no_text
+        append!(l.ignore_lines,collect(first_line:last_line))
+    elseif match(r"#####",String(args[1])) != nothing || match(r"#####",String(args[end-1])) != nothing
+        @debug "Adding lines from $first_line to $last_line"
+        append!(l.ignore_lines,collect(first_line:last_line))
+    end
+end
 
 check_column(token::Token,proper,rule_no) = begin
     if token.column != proper
@@ -61,17 +86,25 @@ get_delimiter(value::Token) = begin
     end
     if value[1] == '\'' return "'" end
     if value[1] == '\"' return "\"" end
+    if is_null(value) return nothing end
     return ""
 end
 
 get_delimiter_with_val(v) = begin
     delimiter = get_delimiter(v)
     if delimiter in ("[","{","\n;") return delimiter,v end
+    if !is_null(v)
+        del_len = length(delimiter)
+    else
+        del_len = 0
+    end
     value = traverse_to_value(v)
-    del_len = length(delimiter)
     return delimiter,value[1+del_len:(end-del_len)]
 end
 
+is_null(v::Tree) = length(v.children) == 1 && is_null(v.children[1])
+is_null(v::Token) = String(v) == "."
+    
 traverse_to_value(tv::Tree;firstok=false) = begin
     if length(tv.children) == 1 || firstok return traverse_to_value(tv.children[1],firstok=firstok)
     else
@@ -153,6 +186,7 @@ has_newline(t) = get_line(t) < get_last_line(t)
 
 # Only semicolon-delimited values have any consistent rules
 @rule semi_string(l::Linter,tree) = begin
+    if get_line(tree) in l.ignore_lines return end
     first_line = strip(tree.children[1])
     if length(first_line)>1 && !(first_line[end] == '\\')
         print_err(get_line(tree),"First line of semicolon-delimited string should be blank, except for prefix and folding codes",err_code="2.1.11")
@@ -179,18 +213,25 @@ end
     delims = check_loop_delimiters(name_list,value_list)
     # check proper layout
     check_loop_layout(name_list,value_list,delims)
-    check_loop_text_indent(name_list,value_list,delims)
+    if !(l.no_text)
+        check_loop_text_indent(name_list,value_list,delims)
+    end
 end
 
+"""
+    Check that loops have consistent delimiters. The value "." (ie nothing)
+    is ignored, as it must always have no delimiters.
+"""
 check_loop_delimiters(name_list,value_list) = begin
     num_names = length(name_list)
-    best_delimiters = fill("",num_names)
+    best_delimiters = Vector{Union{Nothing,String}}(undef,num_names)
+    fill!(best_delimiters,"")
     seen_single = fill(false,num_names)
     nrows = div(length(value_list),num_names)
     delims = Array{Union{Nothing,String}}(undef,num_names)
     for n in 1:num_names
         delims[n],bare = get_delimiter_with_val(value_list[n])
-        if !(delims[n] in ("[","{","\n;"))
+        if !(delims[n] in ("[","{","\n;",nothing))
             best_delimiters[n],_ = which_delimiter(bare)
             seen_single[n] = occursin("\"",bare)
         else
@@ -199,12 +240,16 @@ check_loop_delimiters(name_list,value_list) = begin
     end
     for r in 2:nrows
         for n in 1:num_names
-            #println("Checking $(value_list[(r-1)*num_names + n])")
+            @debug "Checking $(value_list[(r-1)*num_names + n])"
             new_delimiter,bare = get_delimiter_with_val(value_list[(r-1)*num_names + n])
+            if delims[n] == nothing && new_delimiter != nothing
+                delims[n] = new_delimiter
+                best_delimiters[n] = new_delimiter
+            end
             if new_delimiter != delims[n]
                 print_err(name_list[1].line,"Inconsistent delimiters for $(name_list[n]), seen $(delims[n]) and $new_delimiter",err_code="2.1.13")
             end
-            if !(new_delimiter in ("[","{","\n;"))
+            if !(new_delimiter in ("[","{","\n;",nothing))
                 seen_single[n] = seen_single[n] || occursin("\"",bare)
                 best_delimiters[n] = choose_best_delimiter(best_delimiters[n],which_delimiter(bare)[1],seen_single[n])
             end
@@ -242,8 +287,11 @@ check_loop_layout(name_list,value_list,delims) = begin
     for i in 1:num_names
         check_column(name_list[i],text_indent + loop_indent + 1,"3.2.3")
     end
+
     col_align = [get_column(x) for x in value_list[1:num_names]]
+    
     # Check columns on a single line
+    
     if num_names > 1
         diffs = col_align[2:end] - col_align[1:(end-1)]
         col = argmin(diffs)
@@ -251,12 +299,25 @@ check_loop_layout(name_list,value_list,delims) = begin
             print_err(get_line(value_list[col]),"Columns separated by less than 2 spaces",err_code="3.2.6")
         end
     end
+
+    # Remember nothings so we can update column alignments
+
+    is_nothing = fill(true,num_names)
+    
     nrows = div(length(value_list),num_names)
     colwidths = fill((lower=0,upper=0),num_names)
     for n in 0:(nrows-1)
         for p in 1:num_names
-            # check start of first value in packet
+
             my_value = value_list[n*num_names + p]
+
+            # update required column alignment if we based it off nothing
+
+            if is_nothing[p] && !is_null(my_value)
+                col_align[p] = get_column(my_value)
+                is_nothing[p] = false
+            end
+
             if p == 1 && my_value.children[1].data != "semi_string"
                 check_column(my_value,loop_align,"3.2.5")
             end
@@ -267,7 +328,7 @@ check_loop_layout(name_list,value_list,delims) = begin
                 end
             end
             # check that all column line up
-            if get_column(my_value) != col_align[p]
+            if get_column(my_value) != col_align[p] && !is_null(my_value)
                 print_err(get_line(my_value),"Column $p is misaligned:expected $(col_align[p]), got $(get_column(my_value))",err_code="3.2.10")
             end
             # accumulate values for column length
@@ -429,7 +490,7 @@ end
                 check_column(val,value_indent,"3.1.3")
             end
         end
-    elseif delim in ["'''","\"\"\"","\n;"]
+    elseif delim in ["'''","\"\"\"","\n;"] && !(get_line(val) in l.ignore_lines)
         check_text_indent(val,text_indent,"2.1.9")
     end
 end
@@ -497,20 +558,21 @@ end
 
 # Non-grammar based checks
 
-check_line_properties(fulltext) = begin
+check_line_properties(fulltext,ignore_list) = begin
     double_lines = findall(r"\n\n\n",fulltext)
     for d in double_lines
+        if count(r"\n",fulltext[1:d.start]) in ignore_list continue end
         print_err(count(r"\n",fulltext[1:d.start]),"Double blank lines",err_code="1.4")
     end
     as_lines = collect(enumerate(split(fulltext,"\n")))
     line_lengths = map(x->(x[1],length(x[2])),as_lines)
-    bad = filter(x->x[2]>80,line_lengths)
+    bad = filter(x->x[2]>80 && !(x[1] in ignore_list),line_lengths)
     if length(bad) > 0
         for (n,b) in bad
             print_err(n,"Line too long: $b characters",err_code="1.1")
         end
     end
-    trailing = filter(x->length(x[2])>0 && x[2][end] == ' ',as_lines)
+    trailing = filter(x->length(x[2])>0 && x[2][end] == ' ' && !(x[1] in ignore_list),as_lines)
     for (n,b) in trailing
         print_err(n,"Trailing whitespace",err_code="1.3")
     end

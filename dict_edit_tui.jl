@@ -49,30 +49,44 @@ end
 
 # The current definition is updated with the new value
 update_model!(d,new_val) = begin
-    update_dict!(d.base_dict,d.cur_def,d.cur_attribute,d.cur_val[d.att_index],new_val)
+    if d.edit_val == strip(d.cur_val[d.att_index]) return end #no change
+    done = auto_changes!(d,new_val)
+    if !done
+        update_dict!(d.base_dict,d.cur_def,d.cur_attribute,d.cur_val[d.att_index],new_val)
+    end
     d.cur_val = val_for_att(d)
     @assert d.cur_val[d.att_index] == new_val
-    auto_changes!(d)
 end
 
-auto_changes!(d) = begin
-    if d.cur_attribute in ("_name.object_id","_name.category_id")
-        if d.base_dict[d.cur_def][:definition].class[] == "Head"
-            # cat / obj same for head definition
-            changed_val = get_attribute(d.base_dict,d.cur_def,d.cur_attribute)[]
-            update_dict!(d.base_dict,d.cur_def,"_name.category_id",changed_val)
-            update_dict!(d.base_dict,d.cur_def,"_name.object_id",changed_val)
+auto_changes!(d,new_val) = begin
+    # Fix any category changes
+    old = d.cur_val[d.att_index]
+    if d.cur_attribute == "_name.object_id" && is_category(d.base_dict,d.cur_def)
+        rename_category!(d.base_dict,old,new_val)
+        d.cur_def = new_val
+        head_chk = get_attribute(d.base_dict,d.cur_def,"_definition.class")
+        if !ismissing(head_chk) && head_chk[] == "Head"
+            update_dict!(d.base_dict,d.cur_def,"_name.category_id",new_val)
         end
-        cat = d.base_dict[d.cur_def][:name].category_id[]
-        obj = d.base_dict[d.cur_def][:name].object_id[]
-        if is_category(d.base_dict,d.cur_def)
-            new_def = obj
-        else
-            new_def = "_"*cat*"."*obj
-        end
-        update_dict!(d.base_dict,d.cur_def,"_definition.id",new_def)
-        d.cur_def = new_def
+        return true  # all done
     end
+    if d.cur_attribute == "_name.object_id" && !is_category(d.base_dict,d.cur_def)
+        old_cat = d.base_dict[d.cur_def][:name].category_id[]
+        new_name = "_"*old_cat*"."*new_val
+        rename_name!(d.base_dict,d.cur_def,new_name)
+        d.cur_def = new_name
+    elseif d.cur_attribute == "_name.category_id" && !is_category(d.base_dict,d.cur_def)
+        old_obj = d.base_dict[d.cur_def][:name].object_id[]
+        new_name = "_"*new_val*"."*old_obj
+        rename_name!(d.base_dict,d.cur_def,new_name)
+        d.cur_def = new_name
+    end
+    if d.cur_attribute == "_definition.scope" && new_val == "Head"
+        # cat / obj same for head definition
+        obj_id = d.base_dict[d.cur_def][:name].object_id[]
+        update_dict!(d.base_dict,d.cur_def,"_name.category_id",obj_id)
+    end
+    return false  #not all done
     # This should be done right at the end
     #today = Dates.format(Dates.now(),"yyyy-mm-dd")
     #update_dict!(d.base_dict,d.cur_def,"_definition.update",today)
@@ -86,11 +100,17 @@ possible_values(d) = begin
     if d.cur_attribute == "_name.category_id"
         return get_categories(d.base_dict)
     end
+    full_list = []
     try
-        return d.ref_dic[d.cur_attribute][:enumeration_set].state
+        full_list = d.ref_dic[d.cur_attribute][:enumeration_set].state
     catch
         return []
     end
+    # Prune based on other information
+    if !is_category(d.base_dict,d.cur_def) && d.cur_attribute == "_definition.class"
+        deleteat!(full_list,findall(x->x in ("Head","Set","Loop","Functions")))
+    end
+    return full_list
 end
 
 val_for_att(d) = begin
@@ -323,6 +343,9 @@ end
 # the help screen
 
 const help_text = """
+   Notes:
+   1. If you change a category name, all children of
+   this category are automatically renamed accordingly
 
 """ 
 
@@ -434,15 +457,16 @@ handle_event(d::DictModel,name::String) = begin
     end
 end
 
+# Escape - abandon edit
+# Return - keep edit
 handle_edit_event(d::DictModel) = begin
-    edit_mode = true
     start_edit(d)
     update(d)
-    while edit_mode
+    while true
         sequence = T.read_stream()
         event = T.parse_sequence(sequence)
         if sequence == "\e"
-            edit_mode = false
+            start_edit(d); break
         elseif event == T.KeyPressedEvent(T.BACKSPACE)
             delete_char(d) && update(d)
         elseif event == T.KeyPressedEvent(T.DELETE)
@@ -451,6 +475,8 @@ handle_edit_event(d::DictModel) = begin
             move_right(d); update(d)
         elseif event == T.KeyPressedEvent(T.LEFT)
             move_left(d);  update(d)
+        elseif event == T.KeyPressedEvent(T.ENTER)
+            break
         else # insert character
             insert_char(d,sequence)
             update(d)
@@ -507,6 +533,37 @@ save_BLANK
 
 save_
 
+save_SUBCAT
+
+    _definition.id                SUBCAT
+    _definition.scope             Category
+    _definition.class             Loop
+    _definition.update            $(Dates.format(Dates.now(),"yyyy-mm-dd"))
+    _description.text
+;
+    This category is a placeholder example category. Please edit me
+;
+    _name.category_id             BLANK
+    _name.object_id               SUBCAT
+    _category_key.name            "_subcat.dataname"
+
+save_
+
+save_subcat.dataname
+    _definition.id                '_subcat.dataname'
+    _definition.update            $(Dates.format(Dates.now(),"yyyy-mm-dd"))
+    _description.text
+;
+    A simple empty dataname. Please edit
+;
+    _name.category_id             subcat
+    _name.object_id               dataname
+    _type.source                  Recorded
+    _type.container               Single
+    _type.contents                Text
+    _type.purpose                 Key
+
+save_
 """
 
 # Create a dictionary from nothing

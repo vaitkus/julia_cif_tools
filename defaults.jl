@@ -24,7 +24,7 @@ make_default_table(d::DDLm_Dictionary) = begin
             if is_set_category(d,q)
                 deftab[k] = q
             else
-                println("Checking category for $k")
+                @debug "Checking category for $k"
                 c = find_category(d,k)
                 if !(k in get_keys_for_cat(d,c))
                     deftab[k] = q

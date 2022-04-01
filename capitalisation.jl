@@ -1,5 +1,8 @@
 # Check capitalisation of data names and category attributes
 #
+# Some notes: 'distance_derived' is acceptable so a more complex
+# construction to catch things like 'distance_DA_su' is required.
+#
 const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "Schoenflies","Patterson","Seitz","Friedel",
                       "R_factor","F_calc","Fcalc","Flack","Fox","Cromer_Mann",
@@ -9,7 +12,7 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "B_equiv","U_equiv","B[_]*iso","U[_]*iso",
                       "matrix_B([_]|\$)","matrix_U([_]|\$)","U_[1-3]+","B_[1-3]+","Uij","Bij",
                       "UBij","av_R_","TIJ","_T_max","_T_min","F_000","RGB",
-                      "^IT_","label_[ADH]","distance_[DAH]+","symmetry_[DAH]\$",
+                      "^IT_","label_[ADH]","distance_[DAH]+(_|\$)","symmetry_[DAH]\$",
                       "angle_[DAH]+(_|\$)",
                       "Cambridge","units_Z","CAS\$","ISBN","CSD","Medline",
                       "ASTM","ISSN","^COD\$","NCA","^NH","MDF","NBS","PDB","PDF",
@@ -18,7 +21,8 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "I_over_I","I_over_netI","I_net","R_Fsqd","^R_I_","Lp_factor",
                       "R_I_factor","I_over_suI","meas_F","_S_",
                       "^R\$","^RT\$","^T\$","^B\$","^Ro\$","EPINET","_IZA\$",
-                      "RCSR","_SP\$","TOPOS\$","Voronoi"
+                      "RCSR","_SP\$","TOPOS\$","Voronoi","Stokes_I","Stokes_Q",
+                      "Stokes_U","Stokes_V"
                       )
 
 mutable struct CapitalCheck <: Visitor_Recursive
@@ -28,7 +32,7 @@ mutable struct CapitalCheck <: Visitor_Recursive
     enums::Dict{String,Array{String,1}}
 end
 
-CapitalCheck() = CapitalCheck(false,false,(),Dict())
+CapitalCheck() = CapitalCheck(false,false,[],Dict())
 
 CapitalCheck(d::DDLm_Dictionary) = begin
     code_items = list_code_defs(d)
@@ -121,7 +125,7 @@ canonical_case(name) = begin
     for pn in proper_names
         if match(Regex(lowercase(pn)),String(lname)) !== nothing
             if match(Regex(pn),String(name))=== nothing
-                println("Expected $pn in $name")
+                @debug "Expected $pn in $name"
                 return false
             else
                 return true

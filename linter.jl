@@ -16,7 +16,7 @@ include("ordering.jl")
 include("capitalisation.jl")
 include("defaults.jl")
 
-lint_report(filename;ref_dic="",import_dir="") = begin
+lint_report(filename;ref_dic="",import_dir="",warn=false,no_text=false) = begin
     println("\nLint report for $filename\n"*"="^(length(filename) + 16)*"\n\n")
     if length(import_dir)>0
         println("Imports relative to $import_dir\n\n")
@@ -28,14 +28,28 @@ lint_report(filename;ref_dic="",import_dir="") = begin
         line = count("\n",fulltext[1:firstone])
         print_err(line,"Tabs found, please remove. Indent warnings may be incorrect",err_code="1.6")
     end
-    check_line_properties(fulltext)
+
+    # Get the parse tree
+    
+    ptree = Lerche.parse(CrystalInfoFramework.cif2_parser,fulltext,start="input")
+
+    # Find lines that should be ignored
+
+    lc = LineCheck(no_text)
+    Lerche.visit(lc,ptree)
+
+    @debug "Ignoring lines" lc.ignore_lines
+    
+    check_line_properties(fulltext,lc.ignore_lines)
     check_first_space(fulltext)
     check_last_char(fulltext)
-    ptree = Lerche.parse(CrystalInfoFramework.cif2_parser,fulltext,start="input")
-    l = Linter()
+
+    # Now check layout
+    
+    l = Linter(lc)
     Lerche.visit(l,ptree)
     if import_dir == "" import_dir = dirname(filename) end
-    oc = OrderCheck(import_dir)
+    oc = OrderCheck(import_dir,warn)
     println("\nOrdering:\n")
     Lerche.visit(oc,ptree)
     if ref_dic != ""
@@ -61,26 +75,33 @@ parse_cmdline(d) = begin
          required = true
         "refdic"
          help = "DDL reference dictionary. If absent, capitalisation will not be checked"
-        required = false
         default = ""
+        required = false
         "--import-dir","-i"
         help = "Directory to search for imported files in. Default is the same directory as the dictionary"
         arg_type = String
         default = ""
-        required = false
+        "-w","--warn"
+        help = "Warn about unrecognised DDL attributes and other non-layout issues"
+        nargs = 0
+        "-t","--ignore-text"
+        help = "Do not check layout in multi-line text strings"
+        nargs = 0
     end
     parse_args(s)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     parsed_args = parse_cmdline("Check dictionary conformance to DDLm style guide.")
-    println("$parsed_args")
-    lint_report(parsed_args["dictname"],ref_dic=parsed_args["refdic"],import_dir=parsed_args["import-dir"])
+    @debug "$parsed_args"
+    lint_report(parsed_args["dictname"],ref_dic=parsed_args["refdic"],
+                import_dir=parsed_args["import-dir"],
+                warn = parsed_args["warn"],
+                no_text = parsed_args["ignore-text"])
     println("Total errors by style rule:")
     for k in sort(collect(keys(err_record)))
         @printf "%10s: %5d\n" k err_record[k]
     end
     println()
     length(err_record) > 0 ? exit(1) : exit(0)
-    end
 end

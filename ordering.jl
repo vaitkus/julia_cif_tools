@@ -28,10 +28,11 @@ mutable struct OrderCheck <: Visitor_Recursive
     is_su::Bool
     linked::String
     origin_dir::AbstractPath   #for imports
+    warn::Bool                 #emit warnings
 end
 
-OrderCheck() = OrderCheck(@__DIR__)
-OrderCheck(s::String) = OrderCheck([],[],[],[],"","","",false,"",Path(s))
+OrderCheck() = OrderCheck(@__DIR__,false)
+OrderCheck(s::String,w::Bool) = OrderCheck([],[],[],[],"","","",false,"",Path(s),w)
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
     att = traverse_to_value(tree.children[1],firstok=true)
@@ -46,7 +47,7 @@ end
 end
 
 @rule save_frame(oc::OrderCheck,tree) = begin
-    check_order(atts_as_strings,oc.seen_items,"4.3.4",get_line(tree))
+    check_order(atts_as_strings,oc.seen_items,"4.3.4",get_line(tree),warn=oc.warn)
     cats = map(x->to_cat_obj(x)[1],oc.seen_items)
     if "import_details" in cats
         print_err(get_line(tree),"No import_details attributes should be used",err_code="4.3.3")
@@ -61,7 +62,12 @@ end
     end
     if oc.this_def != ""
         push!(oc.seen_defs,oc.this_def)
-        push!(oc.cat_info,(oc.this_def,oc.this_parent))
+
+        # If parent == def, we have the head category and can skip it
+
+        if oc.this_def != oc.this_parent
+            push!(oc.cat_info,(oc.this_def,oc.this_parent))
+        end
     end
     # Make sure this item's category is the most recently seen, if it is a data name
     if occursin(".",oc.this_def)
@@ -110,12 +116,14 @@ to_cat_obj(v) = begin
     return lowercase(c[2:end]),lowercase(o)
 end
 
-check_order(right,observed,err_code,line) = begin
+check_order(right,observed,err_code,line;warn=false) = begin
     known = filter(x->x in right,observed)
     checked = filter(x->x in observed,right)
-    unknown = setdiff(observed,right)
-    if length(unknown) > 0
-        println("WARNING: unknown attributes $unknown")
+    if warn
+        unknown = setdiff(observed,right)
+        if length(unknown) > 0
+            println("WARNING: unknown attributes $unknown")
+        end
     end
     if known != checked
         print_err(line,"Order of items in definition incorrect:",err_code=err_code)
@@ -161,7 +169,7 @@ process_import(oc::OrderCheck,val,tree) = begin
     try
         templ_file = Cif(templ_file_name,native=true)
     catch
-        println("WARNING: unable to resolve $templ_file_name to a filename")
+        @warn "unable to resolve $templ_file_name to a filename"
         return
     end
     templates = get_frames(first(templ_file)[end])
