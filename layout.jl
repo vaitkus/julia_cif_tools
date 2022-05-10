@@ -246,7 +246,7 @@ check_loop_delimiters(name_list,value_list) = begin
                 delims[n] = new_delimiter
                 best_delimiters[n] = new_delimiter
             end
-            if new_delimiter != delims[n]
+            if new_delimiter != delims[n] && new_delimiter != nothing
                 print_err(name_list[1].line,"Inconsistent delimiters for $(name_list[n]), seen $(delims[n]) and $new_delimiter",err_code="2.1.13")
             end
             if !(new_delimiter in ("[","{","\n;",nothing))
