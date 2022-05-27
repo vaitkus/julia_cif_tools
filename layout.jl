@@ -105,14 +105,25 @@ end
 is_null(v::Tree) = length(v.children) == 1 && is_null(v.children[1])
 is_null(v::Token) = String(v) == "."
     
-traverse_to_value(tv::Tree;firstok=false) = begin
-    if length(tv.children) == 1 || firstok return traverse_to_value(tv.children[1],firstok=firstok)
+traverse_to_value(tv::Tree;firstok=false,kwargs...) = begin
+    if length(tv.children) == 1 || firstok return traverse_to_value(tv.children[1];firstok=firstok,kwargs...)
     else
         throw(error("Cannot find unique single value for $tv"))
     end
 end
 
-traverse_to_value(tv::Token;firstok=false) = tv
+"""
+If delims is false remove them before returning
+"""
+traverse_to_value(tv::Token;firstok=false,delims=true) = begin
+    if !delims
+        q = get_delimiter(tv)
+        if isnothing(q) return tv end
+        del_len = length(q)
+        return tv[1+del_len:(end-del_len)]
+    end
+    return tv
+end
 
 # Return the first item of type `d` found in `tv` 
 traverse_to_type(tv::Tree,d) = begin

@@ -70,13 +70,13 @@ end
         if v == "function" cc.isfunc = true end
     end
     if attribute in cc.code_items && !(attribute in keys(cc.enums))
-        v = traverse_to_value(tree.children[2])
+        v = traverse_to_value(tree.children[2],delims=false)
         if isletter(v[1]) && !isuppercase(v[1])
             print_err(get_line(tree),"Attribute values for $attribute should be capitalised",err_code="2.1.12")
         end
     end
     if attribute in keys(cc.enums)
-        v = traverse_to_value(tree.children[2],firstok=true)
+        v = traverse_to_value(tree.children[2],firstok=true,delims=false)
         poss = cc.enums[attribute]
         if !(v in poss)
             print_err(get_line(tree),"Attribute value $v for $attribute does not follow that used in the reference dictionary",err_code="2.1.13")
@@ -91,7 +91,7 @@ end
         dname = dnames[((i-boundary)%length(dnames))+1]
         if dname in keys(cc.enums)
             poss = cc.enums[dname]
-            val = String(traverse_to_value(tree.children[i],firstok=true))
+            val = String(traverse_to_value(tree.children[i],firstok=true,delims=false))
             if !(val in poss)
                 print_err(get_line(tree.children[i]),"Attribute value $val for $dname is not capitalised as in the reference dictionary", err_code="2.1.13")
             end

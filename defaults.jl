@@ -39,9 +39,12 @@ make_default_table(d::DDLm_Dictionary) = begin
     return deftab
 end
 
+"""
+Do not check for keys if only one row in category.
+"""
 @rule scalar_item(dc::DefaultCheck,tree) = begin
     attribute = tree.children[1]
-    push!(dc.att_list,lowercase(attribute))
+    # push!(dc.att_list,lowercase(attribute))
     v = traverse_to_value(tree.children[2],firstok=true)
     if attribute in keys(dc.default_list) && dc.default_list[attribute] == v
         print_err(get_line(tree),"Default value for $attribute should not be output",err_code="3.1.6")
