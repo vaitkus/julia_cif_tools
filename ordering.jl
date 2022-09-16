@@ -18,6 +18,7 @@ const atts_as_strings = get_att_order(ddlm_attribute_order)
 const toplevel_strings = get_att_order(ddlm_toplevel_order)
 
 mutable struct OrderCheck <: Visitor_Recursive
+    all_defs::Array{String,1}
     seen_items::Array{String,1}
     seen_defs::Array{String,1}
     top_level::Array{String,1}
@@ -32,7 +33,7 @@ mutable struct OrderCheck <: Visitor_Recursive
 end
 
 OrderCheck() = OrderCheck(@__DIR__,false)
-OrderCheck(s::String,w::Bool) = OrderCheck([],[],[],[],"","","",false,"",Path(s),w)
+OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],[],[],"","","",false,"",Path(s),w)
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
     att = traverse_to_value(tree.children[1],firstok=true)
@@ -52,7 +53,9 @@ end
     if "import_details" in cats
         print_err(get_line(tree),"No import_details attributes should be used",err_code="4.3.3")
     end
-    if !(oc.this_parent in oc.seen_defs) && length(oc.seen_defs) > 0 #Head is first
+    if !(oc.this_parent in oc.seen_defs) &&
+        length(oc.seen_defs) > 0 &&    #Head is first
+        oc.this_parent in oc.all_defs
         print_err(get_line(tree),"Definition for child item $(oc.this_def) comes before category $(oc.this_parent)",err_code="4.1.8")
         #println("Seen $(oc.seen_defs)")
     end
@@ -109,6 +112,22 @@ end
         end
     end
     check_def_order(oc.cat_info,oc.func_cat)
+end
+
+# Collect a list of all cats so we only flag bad ordering when cats are present
+
+mutable struct CatCollector <: Visitor_Recursive
+    all_defs::Array{String,1}
+end
+
+CatCollector() = CatCollector([])
+
+@rule scalar_item(cc::CatCollector,tree) = begin
+    att = traverse_to_value(tree.children[1],firstok=true)
+    val = traverse_to_value(tree.children[2],firstok=true)
+    if att == "_definition.id"
+        push!(cc.all_defs, lowercase(val))
+    end
 end
 
 to_cat_obj(v) = begin
@@ -201,3 +220,4 @@ check_attribute(oc::OrderCheck,att,val,tree) = begin
         process_import(oc,read_import_spec(tree.children[2]),tree)
     end
 end
+

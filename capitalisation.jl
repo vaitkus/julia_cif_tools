@@ -22,7 +22,11 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "R_I_factor","I_over_suI","meas_F","_S_",
                       "^R\$","^RT\$","^T\$","^B\$","^Ro\$","EPINET","_IZA\$",
                       "RCSR","_SP\$","TOPOS\$","Voronoi","Stokes_I","Stokes_Q",
-                      "Stokes_U","Stokes_V"
+                      "Stokes_U","Stokes_V",
+
+                      # Powder dictionary
+
+                      "_wR_","_len_Q\$"
                       )
 
 mutable struct CapitalCheck <: Visitor_Recursive

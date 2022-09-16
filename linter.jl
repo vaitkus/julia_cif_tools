@@ -1,5 +1,5 @@
 # A Linter for DDLm dictionaries
-using CrystalInfoFramework,Printf,FilePaths,ArgParse
+using CrystalInfoFramework, Printf, FilePaths, ArgParse
 
 using Lerche   #for our transformer
 
@@ -29,7 +29,7 @@ lint_report(filename;ref_dic="",import_dir="",warn=false,no_text=false) = begin
         print_err(line,"Tabs found, please remove. Indent warnings may be incorrect",err_code="1.6")
     end
 
-    # Get the parse tree
+    # Get the parse tree and list of definitions
     
     ptree = Lerche.parse(CrystalInfoFramework.cif2_parser,fulltext,start="input")
 
@@ -49,9 +49,19 @@ lint_report(filename;ref_dic="",import_dir="",warn=false,no_text=false) = begin
     l = Linter(lc)
     Lerche.visit(l,ptree)
     if import_dir == "" import_dir = dirname(filename) end
-    oc = OrderCheck(import_dir,warn)
+
+    # Check ordering
+
+    cc = CatCollector()  #get all definitions
+    Lerche.visit(cc,ptree)
+    @debug "All definitions:" cc.all_defs
+    
+    oc = OrderCheck(import_dir,warn,cc.all_defs)
     println("\nOrdering:\n")
     Lerche.visit(oc,ptree)
+
+    # Check capitalisation
+    
     if ref_dic != ""
         d = DDLm_Dictionary(ref_dic,import_dir=import_dir)
         cc = CapitalCheck(d)
