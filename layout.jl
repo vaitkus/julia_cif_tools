@@ -518,6 +518,9 @@ check_delimiter(value) = begin
     else
         quotechar = ""
         test_val = value
+        if test_val == "." || test_val == "?"
+            return
+        end
     end
     best_delimiter,rule_no = which_delimiter(test_val)
     if best_delimiter != quotechar
