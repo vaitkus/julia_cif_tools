@@ -26,7 +26,7 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
 
                       # Powder dictionary
 
-                      "_wR_","_len_Q\$"
+                      "_wR_","_len_Q\$","March-Dollase"
                       )
 
 mutable struct CapitalCheck <: Visitor_Recursive
