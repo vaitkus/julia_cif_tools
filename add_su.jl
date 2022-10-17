@@ -77,7 +77,7 @@ construct_su_def(dic,data_name,full_dic,import_block) = begin
     if nrow(mm) > 0
         new_def[:method] = mm
     end
-    return add_definition(dic,new_def)
+    return add_definition!(dic,new_def)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
