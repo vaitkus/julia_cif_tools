@@ -26,7 +26,7 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
 
                       # Powder dictionary
 
-                      "_wR_","_len_Q\$",
+                      "_wR_","_len_Q\$", "March-Dollase", "March_Dollase",
 
                       # rho_CIF
 
@@ -116,13 +116,13 @@ end
     name = traverse_to_value(name.children[2])
     object = traverse_to_value(object.children[2])
     if cc.iscat && (!all_upper(name) || !all_upper(object))
-        print_err(get_line(tree),"Save frame for $object does not have capitalised category names in _name.category_id or _name.object_id",err_code="2.1.14")
+        print_err(get_line(tree),"Save frame for $object does not have capitalised category names in _name.category_id or _name.object_id",err_code="2.1.10")
     end
     if !cc.iscat && !cc.isfunc && (!canonical_case(name) || !canonical_case(object))
-        print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.15")
+        print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.11")
     end
     if cc.isfunc && (!isuppercase(object[1]) || occursin("_",object))
-        print_err(get_line(tree),"Function name should be CamelCase",err_code="2.1.17")
+        print_err(get_line(tree),"Function name should be CamelCase",err_code="2.1.14")
     end
     cc.iscat = false
     cc.isfunc = false
