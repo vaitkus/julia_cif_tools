@@ -27,7 +27,8 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       # Powder dictionary
 
                       "_wR_","_len_Q\$", "March-Dollase", "March_Dollase",
-
+                      "_len_Q_su\$"
+                      
                       # rho_CIF
 
                       "^P[0-9]{2}", "^P[0-9]_[0-9]", "^Pc", "^Pv"

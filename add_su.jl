@@ -90,14 +90,16 @@ if abspath(PROGRAM_FILE) == @__FILE__
     else
         fname = ARGS[1]
         if length(ARGS) >= 2 for_real = parse(Bool,ARGS[2]) else for_real = false end
-        updated,added = add_su(fname,for_real)
+        updated, added = add_su(fname,for_real)
         println("Total added definitions: $(length(added))")
         for k in sort!(added)
             println("$k")
         end
         println()
-        w = open(fname*".update_su","w")
-        show(w,MIME("text/cif"),updated)
-        close(w)
+        if for_real
+            w = open(fname*".update_su","w")
+            show(w,MIME("text/cif"),updated)
+            close(w)
+        end
     end
 end
