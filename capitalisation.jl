@@ -38,7 +38,7 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
 Exceptions to the regular expressions in proper_names. If the first
 part caseless matches the category, then the second is applied.
 """
-const special_cases = (("march-dollase\$","^R\$"),)
+const special_cases = (("march_dollase\$","^r\$"),)
 
 mutable struct CapitalCheck <: Visitor_Recursive
     iscat::Bool
@@ -127,7 +127,7 @@ end
     end
     
     if !cc.iscat && !cc.isfunc
-        if (!canonical_case(name) || !canonical_case(object)) && !is_special_case(name,object)
+        if !canonical_case(name) || (!canonical_case(object) && !is_special_case(name,object))
             print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.11")
         end
     end
@@ -158,11 +158,15 @@ is_special_case(name, object) = begin
     lname = lowercase(name)
     for (c, o) in special_cases
         if match(Regex(lowercase(c)), String(lname)) !== nothing
-            if match(Regex(o), String(object)) == nothing
-                @debug "Expected $name.$o for $name.$object"
-                return false
-            else
-                return true
+            @debug "Potential special case $name.$object"
+            if match(Regex(lowercase(o)), String(lowercase(object))) != nothing
+                if match(Regex(o), String(object)) == nothing
+                    @debug "Expected $name.$o for $name.$object"
+                    return false
+                else
+                    @debug "$name.$object passes"
+                    return true
+                end
             end
         end
     end
