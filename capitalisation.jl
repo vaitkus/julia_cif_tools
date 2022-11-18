@@ -34,6 +34,12 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       "^P[0-9]{2}", "^P[0-9]_[0-9]", "^Pc", "^Pv"
                       )
 
+"""
+Exceptions to the regular expressions in proper_names. If the first
+part caseless matches the category, then the second is applied.
+"""
+const special_cases = (("march-dollase\$","^R\$"),)
+
 mutable struct CapitalCheck <: Visitor_Recursive
     iscat::Bool
     isfunc::Bool
@@ -119,8 +125,11 @@ end
     if cc.iscat && (!all_upper(name) || !all_upper(object))
         print_err(get_line(tree),"Save frame for $object does not have capitalised category names in _name.category_id or _name.object_id",err_code="2.1.10")
     end
-    if !cc.iscat && !cc.isfunc && (!canonical_case(name) || !canonical_case(object))
-        print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.11")
+    
+    if !cc.iscat && !cc.isfunc
+        if (!canonical_case(name) || !canonical_case(object)) && !is_special_case(name,object)
+            print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.11")
+        end
     end
     if cc.isfunc && (!isuppercase(object[1]) || occursin("_",object))
         print_err(get_line(tree),"Function name should be CamelCase",err_code="2.1.14")
@@ -142,6 +151,21 @@ canonical_case(name) = begin
         end
     end
     if !all_lower(name) return false end
+    return true
+end
+
+is_special_case(name, object) = begin
+    lname = lowercase(name)
+    for (c, o) in special_cases
+        if match(Regex(lowercase(c)), String(lname)) !== nothing
+            if match(Regex(o), String(object)) == nothing
+                @debug "Expected $name.$o for $name.$object"
+                return false
+            else
+                return true
+            end
+        end
+    end
     return true
 end
 
