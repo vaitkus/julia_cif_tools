@@ -118,22 +118,32 @@ end
     if cc.iscat && !all_upper(tree.children[1][6:end])
         print_err(get_line(tree),"Save frame name is not all upper case for category definition",err_code = "4.3.1")
     end
-    name = first(Lerche.find_pred(tree,x->x.children[1]=="_name.category_id"))
-    object = first(Lerche.find_pred(tree,x->x.children[1]=="_name.object_id"))
-    name = traverse_to_value(name.children[2])
-    object = traverse_to_value(object.children[2])
-    if cc.iscat && (!all_upper(name) || !all_upper(object))
-        print_err(get_line(tree),"Save frame for $object does not have capitalised category names in _name.category_id or _name.object_id",err_code="2.1.10")
+
+    if !(cc.iscat || cc.isfunc) && !all_lower(tree.children[1][6:end])
+        print_err(get_line(tree), "Save frame name $(tree.children[1]) is not all lower case for item definition", err_code = "4.3.1")
     end
     
-    if !cc.iscat && !cc.isfunc
-        if !canonical_case(name) || (!canonical_case(object) && !is_special_case(name,object))
-            print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.11")
+    name = Lerche.find_pred(tree,x->x.children[1]=="_name.category_id")
+
+    if !isempty(name)
+        name = first(name)
+        object = first(Lerche.find_pred(tree,x->x.children[1]=="_name.object_id"))
+        name = traverse_to_value(name.children[2])
+        object = traverse_to_value(object.children[2])
+        if cc.iscat && (!all_upper(name) || !all_upper(object))
+            print_err(get_line(tree),"Save frame for $object does not have capitalised category names in _name.category_id or _name.object_id",err_code="2.1.10")
+        end
+    
+        if !cc.iscat && !cc.isfunc
+            if !canonical_case(name) || (!canonical_case(object) && !is_special_case(name,object))
+                print_err(get_line(tree),"Save frame for $object does not have canonical case for category/object names $name/$object",err_code="2.1.11")
+            end
+        end
+        if cc.isfunc && (!isuppercase(object[1]) || occursin("_",object))
+            print_err(get_line(tree),"Function name should be CamelCase",err_code="2.1.14")
         end
     end
-    if cc.isfunc && (!isuppercase(object[1]) || occursin("_",object))
-        print_err(get_line(tree),"Function name should be CamelCase",err_code="2.1.14")
-    end
+    
     cc.iscat = false
     cc.isfunc = false
 end
