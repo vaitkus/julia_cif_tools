@@ -81,11 +81,11 @@ end
 
 get_delimiter(value::Token) = begin
     if length(value) > 6
-        if value[1:3] == "'''" return "'''" end
-        if value[1:3] == "\"\"\"" return "\"\"\"" end
+        if value[1:thisind(value,3)] == "'''" return "'''" end
+        if value[1:thisind(value,3)] == "\"\"\"" return "\"\"\"" end
     end
-    if value[1] == '\'' return "'" end
-    if value[1] == '\"' return "\"" end
+    if first(value) == '\'' return "'" end
+    if first(value) == '\"' return "\"" end
     if is_null(value) return nothing end
     return ""
 end
@@ -99,7 +99,7 @@ get_delimiter_with_val(v) = begin
         del_len = 0
     end
     value = traverse_to_value(v)
-    return delimiter,value[1+del_len:(end-del_len)]
+    return delimiter,value[1+del_len:thisind(value,end-del_len)]
 end
 
 is_null(v::Tree) = length(v.children) == 1 && is_null(v.children[1])
@@ -120,7 +120,7 @@ traverse_to_value(tv::Token;firstok=false,delims=true) = begin
         q = get_delimiter(tv)
         if isnothing(q) return tv end
         del_len = length(q)
-        return tv[1+del_len:(end-del_len)]
+        return tv[1+del_len:thisind(tv,end-del_len)]
     end
     return tv
 end
@@ -251,7 +251,6 @@ check_loop_delimiters(name_list,value_list) = begin
     end
     for r in 2:nrows
         for n in 1:num_names
-            @debug "Checking $(value_list[(r-1)*num_names + n])"
             new_delimiter,bare = get_delimiter_with_val(value_list[(r-1)*num_names + n])
             if delims[n] == nothing && new_delimiter != nothing
                 delims[n] = new_delimiter
@@ -511,10 +510,10 @@ check_delimiter(value) = begin
     quotechar = ""
     if value.type_ == "SINGLE_QUOTE_DATA_VALUE"
         quotechar = value[1:1]
-        test_val = value[2:end-1]
+        test_val = value[2:prevind(value,end-1)]
     elseif value.type_ == "TRIPLE_QUOTE_DATA_VALUE"
         quotechar = value[1:3]
-        test_val = value[4:end-4]
+        test_val = value[4:prevind(value,end-4)]
     else
         quotechar = ""
         test_val = value
@@ -524,7 +523,7 @@ check_delimiter(value) = begin
     end
     best_delimiter,rule_no = which_delimiter(test_val)
     if best_delimiter != quotechar
-        printval = value[1:min(length(value),20)]
+        printval = value[1:min(length(value),prevind(value,20))]
         if length(printval) > 20 printval = printval*"..." end
         print_err(value.line,"Incorrect delimiters for $(printval): should be `$best_delimiter`",err_code=rule_no)
     end

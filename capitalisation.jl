@@ -44,7 +44,7 @@ mutable struct CapitalCheck <: Visitor_Recursive
     iscat::Bool
     isfunc::Bool
     code_items::Array{String,1}
-    enums::Dict{String,Array{String,1}}
+    enums::Dict{String,Array{Union{Nothing,String},1}}
 end
 
 CapitalCheck() = CapitalCheck(false,false,[],Dict())
@@ -106,8 +106,8 @@ end
         dname = dnames[((i-boundary)%length(dnames))+1]
         if dname in keys(cc.enums)
             poss = cc.enums[dname]
-            val = String(traverse_to_value(tree.children[i],firstok=true,delims=false))
-            if !(val in poss)
+            val = traverse_to_value(tree.children[i],firstok=true,delims=false)
+            if !(val in poss) && !(String(val) in poss)
                 print_err(get_line(tree.children[i]),"Attribute value $val for $dname is not capitalised as in the reference dictionary", err_code="2.1.13")
             end
         end
