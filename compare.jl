@@ -134,7 +134,7 @@ report_diffs(source_lang,dics;ignore=(),kwargs...) = begin
         test_categories = ddl2_test_categories
         ignore = union(ignore, ddl2_ignore)
     else
-        dica,dicb = DDLm_Dictionary.(dics, ignore_imports=true)
+        dica,dicb = DDLm_Dictionary.(dics, ignore_imports=:All)
         ref_dic = DDLm_Dictionary(ddlm_ref_dic)
         test_categories = Symbol.(get_categories(ref_dic))
     end

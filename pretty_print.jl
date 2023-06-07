@@ -2,8 +2,9 @@
 
 using CrystalInfoFramework,FilePaths, ArgParse
 
-pretty(infile,outfile;refdic=nothing) = begin
-    i = DDLm_Dictionary(Cif(infile,native=true),ignore_imports=true)
+pretty(infile,outfile;refdic=nothing, expand=false) = begin
+    ignore = expand ? :Full : :All
+    i = DDLm_Dictionary(Cif(infile,native=true),ignore_imports=ignore)
     o = open(outfile,"w")
     
     # Capitalise
@@ -35,11 +36,16 @@ parse_cmdline(d) = begin
         required = false
         default = [nothing]
         nargs = 1
+        "-e","--expand"
+        help = "Expand import templates"
+        nargs = 0
+        required = false
+        default = false
     end
     parse_args(s)
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     parsed_args = parse_cmdline("Pretty print DDLm dictionary to match DDLm style guide.")
-    pretty(Path(parsed_args["before"]),Path(parsed_args["after"]),refdic=parsed_args["refdic"][])
+    pretty(Path(parsed_args["before"]), Path(parsed_args["after"]), refdic=parsed_args["refdic"][], expand = parsed_args["expand"])
 end

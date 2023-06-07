@@ -37,4 +37,5 @@ Format a dictionary according to layout style guide.
 
 Execute by running `julia pretty_print.jl <before> <after>` where
 `before` is the input dictionary file and `after` is the name of the
-pretty-printed file.
+pretty-printed file. Option -e will expand templated imports within
+the dictionary. Default is to leave the import statement untouched.

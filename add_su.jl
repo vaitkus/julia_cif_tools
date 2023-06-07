@@ -5,7 +5,7 @@
 using CrystalInfoFramework,Dates,DataFrames,FilePaths
 
 add_su(filename,for_real) = begin
-    dic = DDLm_Dictionary(filename,ignore_imports=true)
+    dic = DDLm_Dictionary(filename,ignore_imports=:All)
     full_dic = DDLm_Dictionary(filename) #grab the imported "Measurands"
     templ_dic = Cif(Path(joinpath(dirname(filename), "templ_attr.cif")))
     templ_block = get_frames(first(templ_dic).second)["general_su"]
