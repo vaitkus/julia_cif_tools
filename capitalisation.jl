@@ -31,7 +31,11 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
                       
                       # rho_CIF
 
-                      "^P[0-9]{2}", "^P[0-9]_[0-9]", "^Pc", "^Pv"
+                      "^P[0-9]{2}", "^P[0-9]_[0-9]", "^Pc", "^Pv",
+
+                      # mag_CIF
+
+                      "Fourier", "magn_OG"
                       )
 
 """
