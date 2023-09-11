@@ -96,7 +96,7 @@ compare_loops(loop1,loop2,name,cat,ref_dic;ignore=[],wspace=false,caseless=false
 end
 
 check_matching_rows(dfa,dfb,keylist,wspace,caseless) = begin
-    #println("Checking rows $keylist")
+    @debug "Checking rows $keylist"
     if wspace
         dfa = remove_wspace(dfa)
         dfb = remove_wspace(dfb)
