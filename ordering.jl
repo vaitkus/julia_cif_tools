@@ -18,9 +18,9 @@ const atts_as_strings = get_att_order(ddlm_attribute_order)
 const toplevel_strings = get_att_order(ddlm_toplevel_order)
 
 mutable struct OrderCheck <: Visitor_Recursive
-    all_defs::Array{String,1}
-    seen_items::Array{String,1}
-    seen_defs::Array{String,1}
+    all_defs::Array{String,1}    #all definitions in file
+    seen_items::Array{String,1}  #attributes seen in current definition
+    seen_defs::Array{String,1}   #definitions seen so far
     top_level::Array{String,1}
     cat_info::Array{Tuple{String,String},1}
     this_def::String
@@ -57,14 +57,17 @@ end
         length(oc.seen_defs) > 0 &&    #Head is first
         oc.this_parent in oc.all_defs
         print_err(get_line(tree),"Definition for child item $(oc.this_def) comes before category $(oc.this_parent)",err_code="4.1.8")
-        #println("Seen $(oc.seen_defs)")
+        @debug "Seen $(oc.seen_defs)" oc.all_defs
     end
+    
     # Check SU is straight after parent
+
     if oc.is_su && oc.seen_defs[end] != oc.linked
         print_err(get_line(tree),"SU $(oc.this_def) does not immediately follow its Measurand item $(oc.linked)",err_code="4.1.10")
     end
+
     if oc.this_def != ""
-        push!(oc.seen_defs,oc.this_def)
+        push!(oc.seen_defs, oc.this_def)
 
         # If parent == def, we have the head category and can skip it
 
@@ -72,10 +75,13 @@ end
             push!(oc.cat_info,(oc.this_def,oc.this_parent))
         end
     end
-    # Make sure this item's category is the most recently seen, if it is a data name
-    if occursin(".",oc.this_def)
-        previous_cat = findlast(x->!occursin(".",x),oc.seen_defs)
-        if lowercase(oc.seen_defs[previous_cat]) != oc.this_parent
+    
+    # Make sure a category definition occurs before any data names/children from that category
+
+    if occursin(".", oc.this_def)
+        previous_cat = findlast(x -> !occursin(".",x),oc.seen_defs)
+        if lowercase(oc.seen_defs[previous_cat]) != oc.this_parent &&
+            oc.this_parent in oc.all_defs
             print_err(get_line(tree),"Definition for data name $(oc.this_def) is not grouped after parent category $(oc.this_parent)",err_code="4.1.8")
         end
     end
