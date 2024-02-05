@@ -1,8 +1,8 @@
 # Compare two dictionaries, producing a report
 using CrystalInfoFramework,DataFrames,ArgParse
 
-const ddl2_ref_dic = "ddl2_with_methods.dic"
-const ddlm_ref_dic = "/home/jrh/COMCIFS/cif_core/ddl.dic"
+const ddl2_ref_dic = joinpath(@__DIR__, "ddl2_with_methods.dic")
+const ddlm_ref_dic = joinpath(@__DIR__, "ddl.dic")
 #
 # The DDL2 categories that we care about
 #
@@ -74,7 +74,7 @@ compare_loops(loop1,loop2,name,cat,ref_dic;ignore=[],wspace=false,caseless=false
     bnames = names(loop2)
     do_not_have = setdiff(anames,bnames,ignorance,["master_id","__object_id","__blockname"])
     if length(do_not_have) > 0
-        print_err("$name: missing $do_not_have")
+        print_err("$name: missing $cat.$do_not_have")
     end
     common = setdiff(intersect(anames,bnames),ignorance,["master_id","__object_id","__blockname"])
     # println("$cat")
@@ -96,7 +96,6 @@ compare_loops(loop1,loop2,name,cat,ref_dic;ignore=[],wspace=false,caseless=false
 end
 
 check_matching_rows(dfa,dfb,keylist,wspace,caseless) = begin
-    @debug "Checking rows $keylist"
     if wspace
         dfa = remove_wspace(dfa)
         dfb = remove_wspace(dfb)
@@ -105,14 +104,14 @@ check_matching_rows(dfa,dfb,keylist,wspace,caseless) = begin
         dfa = make_lower(dfa)
         dfb = make_lower(dfb)
     end
-    test = antijoin(dfa,dfb;on=keylist,validate=(false,true))
+    test = antijoin(dfa,dfb;on=keylist,validate=(false,true), matchmissing=:equal)
     return test
 end
 
 remove_wspace(df) = begin
     for n in propertynames(df)
         df[:,n] = map(df[!,n]) do x
-            isnothing(x) ? x : replace(x,r"[\n \t]+"m=>"")
+            isnothing(x) || ismissing(x) ? x : replace(x,r"[\n \t]+"m=>"")
         end
     end
     return df
@@ -131,13 +130,11 @@ report_diffs(source_lang,dics;ignore=(),kwargs...) = begin
     if source_lang == "ddl2"
         ref_dic = DDL2_Dictionary(ddl2_ref_dic)
         dica,dicb = DDL2_Dictionary.(dics)
-        test_categories = ddl2_test_categories
-        ignore = union(ignore, ddl2_ignore)
     else
         dica,dicb = DDLm_Dictionary.(dics, ignore_imports=:All)
         ref_dic = DDLm_Dictionary(ddlm_ref_dic)
-        test_categories = Symbol.(get_categories(ref_dic))
     end
+    test_categories = Symbol.(get_categories(ref_dic))
     println("Testing following categories:")
     println("$test_categories")
     println("Ignoring: $ignore")
