@@ -23,7 +23,9 @@ repository](https://github.com/COMCIFS/cif_core). For usage information, `julia 
 
 ## Comparison
 
-Check that two dictionaries have identical contents.
+Check that two dictionaries have identical contents. Before running you will need to edit `compare.jl` to
+set the locations of the DDL2 and DDLm reference dictionaries on your local filesystem (constant definitions
+at the top of the file).
 
 Execute by running `julia compare.jl --lang <lang> -w -c <dic1>
 <dic2>`. If `-w`, ignore whitespace differences.  If `-c`, ignore case
