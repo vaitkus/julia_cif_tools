@@ -103,7 +103,7 @@ get_delimiter_with_val(v) = begin
 end
 
 is_null(v::Tree) = length(v.children) == 1 && is_null(v.children[1])
-is_null(v::Token) = String(v) == "."
+is_null(v::Token) = String(v) == "." || String(v) == "?"
     
 traverse_to_value(tv::Tree;firstok=false,kwargs...) = begin
     if length(tv.children) == 1 || firstok return traverse_to_value(tv.children[1];firstok=firstok,kwargs...)
@@ -249,6 +249,7 @@ check_loop_delimiters(name_list,value_list) = begin
             best_delimiters[n] = delims[n]
         end
     end
+
     for r in 2:nrows
         for n in 1:num_names
             new_delimiter,bare = get_delimiter_with_val(value_list[(r-1)*num_names + n])
@@ -265,9 +266,12 @@ check_loop_delimiters(name_list,value_list) = begin
             end
         end
     end
+
     # Now check that these are the best delimiters
+
     for n in 1:num_names
         if delims[n] != best_delimiters[n]
+            @debug "Delimiters" name_list n delims[n] best_delimiters[n]
             print_err(name_list[n].line,"Non-optimal delimiters for $(name_list[n]), should be \" $(best_delimiters[n]) \"",err_code="2.1")
         end
     end
