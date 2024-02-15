@@ -2,7 +2,7 @@
 
 mutable struct DefaultCheck <: Visitor_Recursive
     ref_dic::DDLm_Dictionary
-    default_list::Dict{String,String}
+    default_list::Dict{String,Union{Nothing,String}}
     att_list::Array{String,1}
 end
 
@@ -12,7 +12,7 @@ DefaultCheck(ref_dic::DDLm_Dictionary) = begin
 end
 
 make_default_table(d::DDLm_Dictionary) = begin
-    deftab = Dict{String,String}()
+    deftab = Dict{String,Union{Nothing,String}}()
     for k in keys(d)
         # no toplevel skipping!
         if :category_id in propertynames(d[k][:name]) &&
@@ -21,14 +21,9 @@ make_default_table(d::DDLm_Dictionary) = begin
         end
         q = get_default(d,k)
         if !ismissing(q)
-            if is_set_category(d,k)
+            c = find_category(d,k)
+            if is_set_category(d,c) || !(k in get_keys_for_cat(d,c))
                 deftab[k] = q
-            else
-                @debug "Checking category for $k"
-                c = find_category(d,k)
-                if !(k in get_keys_for_cat(d,c))
-                    deftab[k] = q
-                end
             end
         end
     end
