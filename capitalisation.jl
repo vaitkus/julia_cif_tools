@@ -28,6 +28,10 @@ const proper_names = ("Wyckoff","Cartn","_H_M\$","_H_M_","_Hall",
 
                       "_wR_","_len_Q\$", "March-Dollase", "March_Dollase",
                       "_len_Q_su\$", "Chebyshev",
+
+                      # ms_CIF
+
+                      "Legendre","_site_U_",
                       
                       # rho_CIF
 
