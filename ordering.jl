@@ -137,8 +137,13 @@ CatCollector() = CatCollector([])
 end
 
 to_cat_obj(v) = begin
-    c,o = split(v,".")
-    return lowercase(c[2:end]),lowercase(o)
+    s = split(v,".")
+    if length(s) < 2
+        return "", lowercase(v)
+    else
+        c, o = s
+        return lowercase(c[2:end]),lowercase(o)
+    end
 end
 
 check_order(right,observed,err_code,line;warn=false) = begin

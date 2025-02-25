@@ -537,14 +537,15 @@ end
     # check space after header
     line_diff = get_line(tree.children[2]) - get_line(tree.children[1])
     if line_diff == 1
-        print_err(tree.children[2].line,"No blank line after data block header",err_code="4.1.5")
+        print_err(get_line(tree.children[2]), "No blank line after data block header",err_code="4.1.5")
     end
-    for i in 3:length(tree.children)
-        c = tree.children[i]
-        if c.data == "save_frame"
-            line_diff = get_line(tree.children[i]) - get_line(tree.children[i-1])
+    blks = tree.children[2:end]   #list of block_contents
+    for i in 2:length(blks)
+        t = blks[i]
+        if t.children[1].data == "save_frame"
+            line_diff = get_line(t.children[1]) - get_last_line(blks[i-1])
             if line_diff == 1
-                print_err(get_line(c),"No blank line before save frame header",err_code="4.3.1")
+                print_err(get_line(t),"No blank line before save frame header",err_code="4.3.1")
             end
         end
     end 
