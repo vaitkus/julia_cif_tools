@@ -4,7 +4,7 @@ using CrystalInfoFramework,FilePaths, ArgParse
 
 pretty(infile,outfile;refdic=nothing, expand=false) = begin
     ignore = expand ? :Full : :All
-    i = DDLm_Dictionary(Cif(infile,native=true),ignore_imports=ignore)
+    i = DDLm_Dictionary(Cif(infile),ignore_imports=ignore)
     o = open(outfile,"w")
     
     # Capitalise

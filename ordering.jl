@@ -197,7 +197,7 @@ process_import(oc::OrderCheck,val,tree) = begin
     templ_file_name = joinpath(oc.origin_dir, val["file"])
     templ_file = nothing
     try
-        templ_file = Cif(templ_file_name,native=true)
+        templ_file = Cif(templ_file_name)
     catch
         @warn "unable to resolve $templ_file_name to a filename"
         return
