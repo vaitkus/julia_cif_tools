@@ -88,6 +88,8 @@ construct_blocks(spec, refdic, infile, audit_dataset; single_block = true) = beg
     
     for one_block_spec in spec
 
+        @debug "Now working on $one_block_spec"
+        
         if length(intersect(one_block_spec, ignore_cats)) > 0 continue end
         if length(intersect(one_block_spec, single_cats)) > 0 && single_block continue end
         val_list = []
@@ -107,14 +109,14 @@ construct_blocks(spec, refdic, infile, audit_dataset; single_block = true) = beg
         # Now create a block for all combinations. Note that one_cat will have
         # only one key data name as it is derived from all_keyed_sets
 
-        block_dict[one_block_spec] = Cif()
+        block_dict[tuple(one_block_spec...)] = Cif()
         key_names = map( x -> get_keys_for_cat(refdic, x)[], one_block_spec)
         foreach(Iterators.product(val_list...)) do pr
 
             @debug "Key names $key_names, values are $pr"
             blockname = reduce(*, pr)
             b = CifBlock()
-            block_dict[one_block_spec][blockname] = b
+            block_dict[tuple(one_block_spec...)][blockname] = b
             for (kn, kv) in zip(key_names, pr)
                 @debug "Setting $kn to $kv in $blockname"
                 b[kn] = [kv]
@@ -577,6 +579,16 @@ merge_parent_child!(d::DDLm_Dictionary, cb::CifContainer) = begin
         
 end
 
+parse_spec_file(specfile) = begin
+
+    l = readlines(specfile)
+    m = map(x -> split.(lowercase(x)), l)
+    filter!(x -> length(x) > 0 && x[1][1] != '#', m)
+
+    @debug "Read in spec" m
+    return m
+end
+
 parse_cmdline(d) = begin
     s = ArgParseSettings(d)
     @add_arg_table! s begin
@@ -594,6 +606,15 @@ parse_cmdline(d) = begin
         help = "Directory to search for imported files in. Default is the same directory as the dictionary"
         arg_type = String
         default = ""
+        "--audit-dataset", "-a"
+        help = "Include any values of `_audit_dataset.id` found in any data block in all data blocks"
+        arg_type = Bool
+        default = true
+        required = false
+        "--spec", "-s"
+        help = "Specification file for reorganisation"
+        arg_type = String
+        default = ""
     end
     parse_args(s)
 end
@@ -604,9 +625,18 @@ Redistribute data among blocks in the supplied CIF file.
 CIF data blocks are slices out of a notional set of relational tables. These tables
 can be sliced in different ways. This tool takes a collection of blocks and reslices
 the underlying relational representation according to the specified requirements.
+
+The specification file is a series of space-separated Set category
+names. Data names from categories appearing on the same line will
+always appear together, even if that would involve repeating
+information.  Datanames not belonging to a Set category or Set-linked
+category will be output in a single, separate data block.
+
 """
+
 if abspath(PROGRAM_FILE) == @__FILE__
     parsed_args = parse_cmdline(explanatory_text)
+
     @debug "$parsed_args"
 
     if parsed_args["outfile"] == [""]
@@ -614,9 +644,18 @@ if abspath(PROGRAM_FILE) == @__FILE__
     else
         outfile = open(parsed_args["outfile"],"w")
     end
+
+    pas = parsed_args["spec"]
+    if pas == ""
+        spec = nothing
+    else
+        spec = parse_spec_file(pas)
+    end
     
-    redistribute(parsed_args["dictname"], parsed_args["infile"],
-                 import_dir = parsed_args["import-dir"], outfile = outfile)
+    reorganise(parsed_args["dictname"], parsed_args["infile"],
+                 import_dir = parsed_args["import-dir"],
+                 audit_dataset = parsed_args["audit-dataset"],
+                 outfile = outfile, out_spec = spec)
 
     close(outfile)
 end

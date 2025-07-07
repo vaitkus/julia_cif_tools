@@ -2,12 +2,12 @@
 # We rely on the "general_su" imported data for
 # generic su values
 
-using CrystalInfoFramework,Dates,DataFrames,FilePaths
+using CrystalInfoFramework,Dates,DataFrames
 
 add_su(filename,for_real) = begin
     dic = DDLm_Dictionary(filename,ignore_imports=:All)
     full_dic = DDLm_Dictionary(filename) #grab the imported "Measurands"
-    templ_dic = Cif(Path(joinpath(dirname(filename), "templ_attr.cif")))
+    templ_dic = Cif(joinpath(dirname(filename), "templ_attr.cif"))
     templ_block = get_frames(first(templ_dic).second)["general_su"]
     no_sus = collect_defs(full_dic)
     if !for_real return nothing,no_sus end

@@ -1,6 +1,6 @@
 # Pretty print. We just use CrystalInfoFramework's facilities
 
-using CrystalInfoFramework,FilePaths, ArgParse
+using CrystalInfoFramework, ArgParse
 
 pretty(infile,outfile;refdic=nothing, expand=false) = begin
     ignore = expand ? :Full : :All
@@ -47,5 +47,5 @@ end
 
 if abspath(PROGRAM_FILE) == @__FILE__
     parsed_args = parse_cmdline("Pretty print DDLm dictionary to match DDLm style guide.")
-    pretty(Path(parsed_args["before"]), Path(parsed_args["after"]), refdic=parsed_args["refdic"][], expand = parsed_args["expand"])
+    pretty(parsed_args["before"], parsed_args["after"], refdic=parsed_args["refdic"][], expand = parsed_args["expand"])
 end

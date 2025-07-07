@@ -28,12 +28,12 @@ mutable struct OrderCheck <: Visitor_Recursive
     func_cat::String
     is_su::Bool
     linked::String
-    origin_dir::AbstractPath   #for imports
+    origin_dir::String
     warn::Bool                 #emit warnings
 end
 
 OrderCheck() = OrderCheck(@__DIR__,false)
-OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],[],[],"","","",false,"",Path(s),w)
+OrderCheck(s::String,w::Bool,all_defs::Vector{String}) = OrderCheck(all_defs,[],[],[],[],"","","",false,"",s,w)
 
 @rule scalar_item(oc::OrderCheck,tree) = begin
     att = traverse_to_value(tree.children[1],firstok=true)

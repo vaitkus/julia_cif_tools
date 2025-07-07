@@ -1,5 +1,5 @@
 # A Linter for DDLm dictionaries
-using CrystalInfoFramework, Printf, FilePaths, ArgParse
+using CrystalInfoFramework, Printf, ArgParse
 
 using Lerche   #for our transformer
 
